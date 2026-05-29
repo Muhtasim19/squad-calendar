@@ -2,26 +2,30 @@ import { useState } from "react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
-const TYPE_COLORS = {
-  hangout: { active:"#EEEDFE", border:"#AFA9EC", text:"#3C3489" },
-  trip:    { active:"#E1F5EE", border:"#5DCAA5", text:"#085041" },
-  sports:  { active:"#FAEEDA", border:"#EF9F27", text:"#633806" },
-};
+const DEFAULTS = [
+  { name:"hangout", color:{ bg:"#EEEDFE", color:"#3C3489" } },
+  { name:"trip",    color:{ bg:"#E1F5EE", color:"#085041" } },
+  { name:"sports",  color:{ bg:"#FAEEDA", color:"#633806" } },
+];
 
-export default function SubmitForm({ defaultDate, onClose }) {
-  const [title, setTitle]       = useState("");
-  const [date, setDate]         = useState(defaultDate || "");
-  const [type, setType]         = useState("hangout");
-  const [who, setWho]           = useState("");
-  const [note, setNote]         = useState("");
+export default function SubmitForm({ defaultDate, categories, onClose }) {
+  const [title,    setTitle]    = useState("");
+  const [date,     setDate]     = useState(defaultDate || "");
+  const [time,     setTime]     = useState("");
+  const [location, setLocation] = useState("");
+  const [type,     setType]     = useState("hangout");
+  const [who,      setWho]      = useState("");
+  const [note,     setNote]     = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone]         = useState(false);
+  const [done,     setDone]     = useState(false);
+
+  const cats = categories?.length > 0 ? categories : DEFAULTS;
 
   async function handleSubmit() {
     if (!title || !date) return alert("Please add a title and date!");
     setSubmitting(true);
     await addDoc(collection(db, "events"), {
-      title, date, type, who, note,
+      title, date, time, location, type, who, note,
       status: "pending",
       createdAt: serverTimestamp(),
     });
@@ -30,47 +34,60 @@ export default function SubmitForm({ defaultDate, onClose }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
-      <div style={{ background:"var(--color-background-primary)", borderRadius:12, border:"0.5px solid var(--color-border-tertiary)", padding:"1.5rem", width:320, maxWidth:"95vw" }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
+      <div className="modal-anim" style={{ background:"rgba(255,255,255,0.95)", backdropFilter:"blur(20px)", borderRadius:20, padding:"1.75rem", width:380, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.15)" }}>
         {done ? (
-          <div style={{ textAlign:"center", padding:"1rem 0" }}>
-            <div style={{ fontSize:32, marginBottom:12 }}>✅</div>
-            <h2 style={{ fontSize:16, fontWeight:500, marginBottom:8 }}>Plan submitted!</h2>
-            <p style={{ fontSize:14, color:"var(--color-text-secondary)", marginBottom:16 }}>The admin will review and approve it soon.</p>
-            <button onClick={onClose} style={{ width:"100%", padding:8, borderRadius:8, border:"0.5px solid var(--color-border-secondary)", background:"none", cursor:"pointer" }}>close</button>
+          <div style={{ textAlign:"center", padding:"1.5rem 0" }}>
+            <div style={{ fontSize:52, marginBottom:12 }}>✅</div>
+            <h2 style={{ fontSize:18, fontWeight:700, marginBottom:8, color:"#3C3489" }}>Plan submitted!</h2>
+            <p style={{ fontSize:14, color:"#aaa", marginBottom:20 }}>The admin will review and approve it soon.</p>
+            <button onClick={onClose} style={{ width:"100%", padding:10, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer" }}>close</button>
           </div>
         ) : (
           <>
-            <h2 style={{ fontSize:16, fontWeight:500, marginBottom:"1rem" }}>suggest a plan</h2>
-            {[
-              { label:"title", el: <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="what's the plan?" style={{ width:"100%" }} /> },
-              { label:"date",  el: <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ width:"100%" }} /> },
-            ].map(({ label, el }) => (
-              <div key={label} style={{ marginBottom:12 }}>
-                <label style={{ fontSize:12, color:"var(--color-text-secondary)", display:"block", marginBottom:4 }}>{label}</label>
-                {el}
+            <h2 style={{ fontSize:18, fontWeight:700, marginBottom:"1.25rem", color:"#3C3489" }}>suggest a plan</h2>
+
+            <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>title</label>
+            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="what's the plan?" style={{ marginBottom:12 }} />
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+              <div>
+                <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>date</label>
+                <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
               </div>
-            ))}
-            <div style={{ marginBottom:12 }}>
-              <label style={{ fontSize:12, color:"var(--color-text-secondary)", display:"block", marginBottom:4 }}>type</label>
-              <div style={{ display:"flex", gap:8 }}>
-                {["hangout","trip","sports"].map(t => (
-                  <button key={t} onClick={() => setType(t)} style={{ flex:1, padding:"7px 4px", border:`0.5px solid ${type===t ? TYPE_COLORS[t].border : "var(--color-border-secondary)"}`, borderRadius:8, fontSize:12, cursor:"pointer", background: type===t ? TYPE_COLORS[t].active : "none", color: type===t ? TYPE_COLORS[t].text : "var(--color-text-secondary)" }}>{t}</button>
-                ))}
+              <div>
+                <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>time (optional)</label>
+                <input type="time" value={time} onChange={e=>setTime(e.target.value)} />
               </div>
             </div>
-            <div style={{ marginBottom:12 }}>
-              <label style={{ fontSize:12, color:"var(--color-text-secondary)", display:"block", marginBottom:4 }}>who's coming</label>
-              <input value={who} onChange={e=>setWho(e.target.value)} placeholder="Jake, Sam, Mia…" style={{ width:"100%" }} />
+
+            <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>location (optional)</label>
+            <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="park, Jake's place…" style={{ marginBottom:12 }} />
+
+            <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:6 }}>category</label>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+              {cats.map(c => (
+                <button key={c.name} onClick={() => setType(c.name)} style={{
+                  padding:"5px 14px", borderRadius:20, fontSize:12, cursor:"pointer",
+                  background: type===c.name ? c.color.bg : "none",
+                  color: type===c.name ? c.color.color : "#aaa",
+                  border: `1.5px solid ${type===c.name ? c.color.color : "#ddd"}`,
+                  fontWeight: type===c.name ? 700 : 400,
+                  transition:"all 0.15s",
+                }}>{c.name}</button>
+              ))}
             </div>
-            <div style={{ marginBottom:12 }}>
-              <label style={{ fontSize:12, color:"var(--color-text-secondary)", display:"block", marginBottom:4 }}>notes</label>
-              <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="any details…" style={{ width:"100%", resize:"vertical", height:64 }} />
-            </div>
-            <div style={{ display:"flex", gap:8, marginTop:"1rem" }}>
-              <button onClick={onClose} style={{ flex:1, padding:8, borderRadius:8, border:"0.5px solid var(--color-border-secondary)", background:"none", cursor:"pointer" }}>cancel</button>
-              <button onClick={handleSubmit} disabled={submitting} style={{ flex:1, padding:8, borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:500, cursor:"pointer" }}>
-                {submitting ? "submitting…" : "submit plan"}
+
+            <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>who's coming</label>
+            <input value={who} onChange={e=>setWho(e.target.value)} placeholder="Jake, Sam, Mia…" style={{ marginBottom:12 }} />
+
+            <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>notes (optional)</label>
+            <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="any details…" style={{ resize:"vertical", height:64, marginBottom:16 }} />
+
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={onClose} style={{ flex:1, padding:10, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}>cancel</button>
+              <button onClick={handleSubmit} disabled={submitting} style={{ flex:2, padding:10, borderRadius:10, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:submitting?0.7:1 }}>
+                {submitting ? "submitting…" : "submit plan →"}
               </button>
             </div>
           </>
