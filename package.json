@@ -1,21 +1,25 @@
 {
   "name": "squad-calendar",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "dependencies": {
+    "firebase": "^10.14.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-router-dom": "^6.23.0",
+    "react-scripts": "5.0.1"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "react-scripts start",
+    "build": "react-scripts build"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Muhtasim19/squad-calendar.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/Muhtasim19/squad-calendar/issues"
-  },
-  "homepage": "https://github.com/Muhtasim19/squad-calendar#readme"
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead"
+    ],
+    "development": [
+      "last 1 chrome version"
+    ]
+  }
 }
