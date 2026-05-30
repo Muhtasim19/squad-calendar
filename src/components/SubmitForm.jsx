@@ -33,7 +33,8 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
         location: location.name,
         lat: location.lat,
         lng: location.lng,
-        type: finalType, who, note,
+        type: finalType,
+        who, note,
         status: "pending",
         createdAt: serverTimestamp(),
       });
@@ -48,6 +49,7 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
       <div className="modal-anim" style={{ background:"rgba(255,255,255,0.95)", backdropFilter:"blur(20px)", borderRadius:20, padding:"1.75rem", width:400, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.15)" }}>
+
         {done ? (
           <div style={{ textAlign:"center", padding:"1.5rem 0" }}>
             <div style={{ fontSize:52, marginBottom:12 }}>✅</div>
@@ -62,7 +64,7 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
             <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>title</label>
             <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="what's the plan?" style={{ marginBottom:12 }} />
 
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+            <div className="date-time-row" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
               <div>
                 <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>date</label>
                 <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
@@ -81,13 +83,33 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
             <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:6 }}>category</label>
             <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom: type==="custom" ? 8 : 12 }}>
               {cats.map(c => (
-                <button key={c.name} onClick={() => setType(c.name)} style={{ padding:"5px 14px", borderRadius:20, fontSize:12, cursor:"pointer", background: type===c.name ? c.color.bg : "none", color: type===c.name ? c.color.color : "#aaa", border:`1.5px solid ${type===c.name ? c.color.color : "#ddd"}`, fontWeight: type===c.name ? 700 : 400, transition:"all 0.15s" }}>{c.name}</button>
+                <button key={c.name} onClick={() => setType(c.name)} style={{
+                  padding:"5px 14px", borderRadius:20, fontSize:12, cursor:"pointer",
+                  background: type===c.name ? c.color.bg : "none",
+                  color:      type===c.name ? c.color.color : "#aaa",
+                  border:     `1.5px solid ${type===c.name ? c.color.color : "#ddd"}`,
+                  fontWeight: type===c.name ? 700 : 400,
+                  transition: "all 0.15s",
+                }}>{c.name}</button>
               ))}
-              <button onClick={() => setType("custom")} style={{ padding:"5px 14px", borderRadius:20, fontSize:12, cursor:"pointer", background: type==="custom" ? "#f0f0f0" : "none", color: type==="custom" ? "#444" : "#aaa", border:`1.5px solid ${type==="custom" ? "#bbb" : "#ddd"}`, fontWeight: type==="custom" ? 700 : 400, transition:"all 0.15s" }}>+ custom</button>
+              <button onClick={() => setType("custom")} style={{
+                padding:"5px 14px", borderRadius:20, fontSize:12, cursor:"pointer",
+                background: type==="custom" ? "#f0f0f0" : "none",
+                color:      type==="custom" ? "#444" : "#aaa",
+                border:     `1.5px solid ${type==="custom" ? "#bbb" : "#ddd"}`,
+                fontWeight: type==="custom" ? 700 : 400,
+                transition: "all 0.15s",
+              }}>+ custom</button>
             </div>
 
             {type === "custom" && (
-              <input value={customType} onChange={e=>setCustomType(e.target.value)} placeholder="e.g. movies, road trip…" style={{ marginBottom:12 }} autoFocus />
+              <input
+                value={customType}
+                onChange={e=>setCustomType(e.target.value)}
+                placeholder="e.g. movies, road trip…"
+                style={{ marginBottom:12 }}
+                autoFocus
+              />
             )}
 
             <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>who's coming</label>

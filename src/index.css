@@ -58,3 +58,70 @@ input:focus, select:focus, textarea:focus {
   border-color: #7F77DD;
   box-shadow: 0 0 0 3px rgba(127,119,221,0.15);
 }
+
+/* ── Mobile responsive ── */
+@media (max-width: 640px) {
+
+  .page-card {
+    padding: 1rem 0.75rem;
+    border-radius: 16px;
+  }
+
+  .home-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 1rem !important;
+  }
+
+  .home-header h1 {
+    font-size: 20px !important;
+  }
+
+  .home-header p {
+    font-size: 11px !important;
+    margin-top: 2px !important;
+  }
+
+  .suggest-btn {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    white-space: nowrap;
+    border-radius: 10px !important;
+  }
+
+  .cal-nav span {
+    font-size: 16px !important;
+  }
+
+  .cal-cell {
+    min-height: 54px !important;
+    padding: 4px 3px !important;
+    border-radius: 8px !important;
+  }
+
+  .cal-day-num {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 10px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .cal-grid {
+    gap: 2px !important;
+  }
+
+  .modal-anim {
+    width: 96vw !important;
+    padding: 1.25rem !important;
+    border-radius: 16px !important;
+    max-height: 88vh !important;
+  }
+
+  .modal-anim h2 {
+    font-size: 16px !important;
+  }
+
+  .date-time-row {
+    grid-template-columns: 1fr !important;
+  }
+}

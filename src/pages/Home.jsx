@@ -32,16 +32,22 @@ export default function Home() {
   return (
     <div style={{ maxWidth:860, margin:"0 auto", padding:"2rem 1rem" }}>
       <div className="page-card">
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
+
+        {/* Header */}
+        <div className="home-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
           <div>
             <h1 style={{ fontSize:24, fontWeight:700, color:"#3C3489" }}>Squad Calendar</h1>
             <p style={{ fontSize:13, color:"#aaa", marginTop:2 }}>Plan together, show up together</p>
           </div>
-          <button onClick={() => { setSelectedDate(null); setShowForm(true); }}
-            style={{ padding:"9px 18px", borderRadius:10, background:"#7F77DD", color:"#fff", border:"none", fontWeight:600, fontSize:14, cursor:"pointer" }}>
+          <button
+            className="suggest-btn"
+            onClick={() => { setSelectedDate(null); setShowForm(true); }}
+            style={{ padding:"9px 18px", borderRadius:10, background:"#7F77DD", color:"#fff", border:"none", fontWeight:600, fontSize:14, cursor:"pointer" }}
+          >
             + suggest a plan
           </button>
         </div>
+
         <Calendar
           events={events}
           categories={categories}
@@ -52,10 +58,18 @@ export default function Home() {
       </div>
 
       {showForm && (
-        <SubmitForm defaultDate={selectedDate} categories={categories} onClose={() => { setShowForm(false); setSelectedDate(null); }} />
+        <SubmitForm
+          defaultDate={selectedDate}
+          categories={categories}
+          onClose={() => { setShowForm(false); setSelectedDate(null); }}
+        />
       )}
       {selectedEvent && (
-        <EventDetail event={selectedEvent} getCatColor={getCatColor} onClose={() => setSelectedEvent(null)} />
+        <EventDetail
+          event={selectedEvent}
+          getCatColor={getCatColor}
+          onClose={() => setSelectedEvent(null)}
+        />
       )}
     </div>
   );
