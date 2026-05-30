@@ -33,22 +33,30 @@ function parseTimeHours(t) {
   return h + m / 60;
 }
 
-// ── Add Event Modal ──
-function AddEventModal({ categories, onClose, dm }) {
-  const [title,    setTitle]    = useState("");
-  const [date,     setDate]     = useState("");
-  const [time,     setTime]     = useState("");
-  const [location, setLocation] = useState("");
-  const [category, setCategory] = useState("hangout");
-  const [who,      setWho]      = useState("");
-  const [note,     setNote]     = useState("");
-  const [saving,   setSaving]   = useState(false);
+// ── Add Event Modal — fetches its own categories ──
+function AddEventModal({ onClose, dm }) {
+  const [title,      setTitle]      = useState("");
+  const [date,       setDate]       = useState("");
+  const [time,       setTime]       = useState("");
+  const [location,   setLocation]   = useState("");
+  const [category,   setCategory]   = useState("hangout");
+  const [who,        setWho]        = useState("");
+  const [note,       setNote]       = useState("");
+  const [saving,     setSaving]     = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "categories"), snap =>
+      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+    return () => unsub();
+  }, []);
 
   const cats = [
     { name:"hangout", color:{ bg:"#EEEDFE", color:"#3C3489" } },
     { name:"trip",    color:{ bg:"#E1F5EE", color:"#085041" } },
     { name:"sports",  color:{ bg:"#FAEEDA", color:"#633806" } },
-    ...(categories || []),
+    ...categories,
   ];
 
   const textColor   = dm ? "#f0f0f0" : "#333";
@@ -186,7 +194,7 @@ function RsvpList({ eventId }) {
 
 // ── Admin event modal ──
 function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRemove, onSave, dm }) {
-  const [editing, setEditing] = useState(false);
+  const [editing,  setEditing]  = useState(false);
   const [title,    setTitle]    = useState(event.title    || "");
   const [date,     setDate]     = useState(event.date     || "");
   const [time,     setTime]     = useState(event.time     || "");
@@ -258,7 +266,7 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
         ) : (
           <>
             <div style={{ display:"flex", flexDirection:"column", gap:8, fontSize:14, color: dm ? "#aaa" : "#666", marginBottom:16 }}>
-              {dateStr     && <span>📅 {dateStr}{event.time ? ` at ${event.time}` : ""}</span>}
+              {dateStr        && <span>📅 {dateStr}{event.time ? ` at ${event.time}` : ""}</span>}
               {event.location && <span>📍 {event.location}</span>}
               {event.who      && <span>👥 {event.who}</span>}
               {event.note     && <span>📝 {event.note}</span>}
@@ -340,12 +348,11 @@ export default function AdminCalendar({ darkMode = false }) {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [addingEvent,   setAddingEvent]   = useState(false);
 
-  // ── Theme ──
   const t = {
-    text:      dm ? "#f0f0f0" : "#333",
-    textSec:   dm ? "#888"    : "#888",
-    textMuted: dm ? "#555"    : "#bbb",
-    cellBg:    dm ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.65)",
+    text:        dm ? "#f0f0f0" : "#333",
+    textSec:     dm ? "#888"    : "#888",
+    textMuted:   dm ? "#555"    : "#bbb",
+    cellBg:      dm ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.65)",
     cellBgOther: dm ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.2)",
     cellBorder:  dm ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
     timeLine:    dm ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
@@ -398,7 +405,6 @@ export default function AdminCalendar({ darkMode = false }) {
     setSelectedEvent(prev => prev ? { ...prev, ...data } : null);
   }
 
-  // ── Calendar helpers ──
   function dateKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   }
@@ -469,7 +475,6 @@ export default function AdminCalendar({ darkMode = false }) {
           ))}
         </div>
 
-        {/* ── Add Event button ── */}
         <button
           onClick={() => setAddingEvent(true)}
           style={{ padding:"7px 16px", borderRadius:20, background:"#1D9E75", color:"#fff", border:"none", fontSize:13, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:6 }}
@@ -681,9 +686,9 @@ export default function AdminCalendar({ darkMode = false }) {
         />
       )}
 
+      {/* categories prop removed — modal fetches its own */}
       {addingEvent && (
         <AddEventModal
-          categories={categories}
           onClose={() => setAddingEvent(false)}
           dm={dm}
         />
