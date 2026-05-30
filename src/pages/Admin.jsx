@@ -13,25 +13,19 @@ export default function Admin() {
     () => localStorage.getItem("squadcal_admin_dark") === "true"
   );
 
+  // ✅ KEEP — dark mode
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
     localStorage.setItem("squadcal_admin_dark", darkMode);
   }, [darkMode]);
 
+  // ✅ KEEP — auth listener
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
     return () => unsub();
   }, []);
 
-  useEffect(() => {
-    const link     = document.querySelector('link[rel="manifest"]');
-    const original = link?.getAttribute("href");
-    if (link) link.setAttribute("href", "/admin-manifest.json");
-    return () => {
-      if (link && original) link.setAttribute("href", original);
-    };
-  }, []);
-
+  // ❌ REMOVED — manifest swap (no longer needed with admin.squadcal.app subdomain)
 
   async function handleLogin() {
     setError("");
@@ -39,7 +33,9 @@ export default function Admin() {
     catch { setError("Wrong email or password."); }
   }
 
-  if (loading) return <div style={{ padding:"2rem", textAlign:"center", color:"#aaa" }}>loading…</div>;
+  if (loading) return (
+    <div style={{ padding:"2rem", textAlign:"center", color:"#aaa" }}>loading…</div>
+  );
 
   if (!user) return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}>
@@ -47,11 +43,29 @@ export default function Admin() {
         <h1 style={{ fontSize:24, fontWeight:700, color:"#3C3489", marginBottom:4 }}>Admin login</h1>
         <p style={{ fontSize:13, color:"#bbb", marginBottom:"1.75rem" }}>Squad Calendar — admin only</p>
         <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>email</label>
-        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@email.com" style={{ marginBottom:12 }} />
+        <input
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="you@email.com"
+          style={{ marginBottom:12 }}
+        />
         <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>password</label>
-        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" style={{ marginBottom:16 }} onKeyDown={e=>e.key==="Enter"&&handleLogin()} />
+        <input
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          placeholder="••••••••"
+          style={{ marginBottom:16 }}
+          onKeyDown={e => e.key === "Enter" && handleLogin()}
+        />
         {error && <p style={{ color:"#A32D2D", fontSize:13, marginBottom:12 }}>{error}</p>}
-        <button onClick={handleLogin} style={{ width:"100%", padding:13, borderRadius:12, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, fontSize:15, cursor:"pointer" }}>log in</button>
+        <button
+          onClick={handleLogin}
+          style={{ width:"100%", padding:13, borderRadius:12, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, fontSize:15, cursor:"pointer" }}
+        >
+          log in
+        </button>
       </div>
     </div>
   );
@@ -65,7 +79,6 @@ export default function Admin() {
             <p style={{ fontSize:13, color:"#bbb", marginTop:2 }}>Approve plans & manage everything</p>
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            {/* Dark mode toggle */}
             <button
               onClick={() => setDarkMode(!darkMode)}
               style={{ width:38, height:38, borderRadius:"50%", border:`1px solid ${darkMode ? "rgba(255,255,255,0.15)" : "#ddd"}`, background: darkMode ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.7)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}
