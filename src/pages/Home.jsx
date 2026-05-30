@@ -20,6 +20,14 @@ export default function Home() {
   const [showForm,      setShowForm]      = useState(false);
   const [selectedDate,  setSelectedDate]  = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [darkMode,      setDarkMode]      = useState(
+    () => localStorage.getItem("squadcal_dark") === "true"
+  );
+
+  useEffect(() => {
+    document.body.classList.toggle("dark", darkMode);
+    localStorage.setItem("squadcal_dark", darkMode);
+  }, [darkMode]);
 
   useEffect(() => {
     const u1 = onSnapshot(
@@ -38,6 +46,8 @@ export default function Home() {
     return cat ? cat.color : (DEFAULT_COLORS[type] || { bg:"#E8E8E8", color:"#666" });
   }
 
+  const dm = darkMode;
+
   return (
     <div style={{ maxWidth:860, margin:"0 auto", padding:"2rem 1rem" }}>
       <div className="page-card">
@@ -45,10 +55,18 @@ export default function Home() {
         {/* Header */}
         <div className="home-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
           <div>
-            <h1 style={{ fontSize:24, fontWeight:700, color:"#3C3489" }}>Squad Calendar</h1>
-            <p style={{ fontSize:13, color:"#aaa", marginTop:2 }}>Plan together, show up together</p>
+            <h1 style={{ fontSize:24, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>Squad Calendar</h1>
+            <p style={{ fontSize:13, color: dm ? "#666" : "#aaa", marginTop:2 }}>Plan together, show up together</p>
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setDarkMode(!dm)}
+              style={{ width:38, height:38, borderRadius:"50%", border:`1px solid ${dm ? "rgba(255,255,255,0.15)" : "#ddd"}`, background: dm ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.7)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, backdropFilter:"blur(8px)" }}
+              title={dm ? "Light mode" : "Dark mode"}
+            >
+              {dm ? "☀️" : "🌙"}
+            </button>
             <Notifications />
             <button
               className="suggest-btn"
@@ -65,30 +83,21 @@ export default function Home() {
           events={events}
           categories={categories}
           getCatColor={getCatColor}
+          darkMode={darkMode}
           onDayClick={date => { setSelectedEvent(null); setSelectedDate(date); setShowForm(true); }}
           onEventClick={ev => { setShowForm(false); setSelectedDate(null); setSelectedEvent(ev); }}
         />
 
-        {/* Push notification banner */}
         <PushNotifications />
-
-        {/* Squad Board */}
         <SquadBoard />
 
       </div>
 
       {showForm && !selectedEvent && (
-        <SubmitForm
-          defaultDate={selectedDate}
-          categories={categories}
-          onClose={() => { setShowForm(false); setSelectedDate(null); }}
-        />
+        <SubmitForm defaultDate={selectedDate} categories={categories} onClose={() => { setShowForm(false); setSelectedDate(null); }} />
       )}
       {selectedEvent && !showForm && (
-        <EventDetail
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-        />
+        <EventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       )}
     </div>
   );

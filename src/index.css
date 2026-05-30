@@ -174,3 +174,36 @@ button, .cal-cell-active {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
+
+/* ── Dark mode ── */
+body.dark {
+  background: linear-gradient(-45deg, #0f0e1a, #0d1b2a, #0d2137, #1a1028) !important;
+  background-size: 400% 400% !important;
+  animation: gradientShift 18s ease infinite !important;
+}
+
+body.dark .page-card {
+  background: rgba(18,18,30,0.96) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5) !important;
+}
+
+body.dark .modal-anim {
+  background: rgba(18,18,30,0.98) !important;
+}
+
+body.dark input,
+body.dark textarea,
+body.dark select {
+  background: rgba(255,255,255,0.08) !important;
+  color: #f0f0f0 !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+body.dark input::placeholder,
+body.dark textarea::placeholder {
+  color: #555 !important;
+}
+
+body.dark button:not([style*="background:#7F77DD"]):not([style*="background:#1D9E75"]):not([style*="background:#A32D2D"]) {
+  color: inherit;
+}
