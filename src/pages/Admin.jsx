@@ -9,6 +9,14 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(true);
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem("squadcal_admin_dark") === "true"
+  );
+
+  useEffect(() => {
+    document.body.classList.toggle("dark", darkMode);
+    localStorage.setItem("squadcal_admin_dark", darkMode);
+  }, [darkMode]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
@@ -43,12 +51,27 @@ export default function Admin() {
       <div className="page-card">
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
           <div>
-            <h1 style={{ fontSize:22, fontWeight:700, color:"#3C3489" }}>Admin panel</h1>
-            <p style={{ fontSize:13, color:"#bbb", marginTop:2 }}>Approve plans & manage categories</p>
+            <h1 style={{ fontSize:22, fontWeight:700, color: darkMode ? "#9B94FF" : "#3C3489" }}>Admin panel</h1>
+            <p style={{ fontSize:13, color:"#bbb", marginTop:2 }}>Approve plans & manage everything</p>
           </div>
-          <button onClick={() => signOut(auth)} style={{ fontSize:13, padding:"7px 16px", borderRadius:10, border:"1px solid #ddd", background:"rgba(255,255,255,0.6)", cursor:"pointer" }}>log out</button>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              style={{ width:38, height:38, borderRadius:"50%", border:`1px solid ${darkMode ? "rgba(255,255,255,0.15)" : "#ddd"}`, background: darkMode ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.7)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}
+              title={darkMode ? "Light mode" : "Dark mode"}
+            >
+              {darkMode ? "☀️" : "🌙"}
+            </button>
+            <button
+              onClick={() => signOut(auth)}
+              style={{ fontSize:13, padding:"7px 16px", borderRadius:10, border:`1px solid ${darkMode ? "rgba(255,255,255,0.15)" : "#ddd"}`, background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.6)", cursor:"pointer", color: darkMode ? "#f0f0f0" : "#333" }}
+            >
+              log out
+            </button>
+          </div>
         </div>
-        <AdminPanel />
+        <AdminPanel darkMode={darkMode} />
       </div>
     </div>
   );
