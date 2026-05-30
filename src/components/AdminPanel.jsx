@@ -4,6 +4,7 @@ import {
   updateDoc, deleteDoc, addDoc, serverTimestamp, orderBy
 } from "firebase/firestore";
 import { db } from "../firebase";
+import AdminCalendar from "./AdminCalendar";
 
 const PALETTE = [
   { bg:"#CECBF6", color:"#3C3489", label:"purple" },
@@ -21,7 +22,6 @@ const DEFAULT_COLORS = {
   sports:  { bg:"#FAC775", color:"#633806" },
 };
 
-// ── RsvpCount badge ──
 function RsvpCount({ eventId }) {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -38,7 +38,6 @@ function RsvpCount({ eventId }) {
   ) : null;
 }
 
-// ── RSVP expanded list ──
 function RsvpList({ eventId }) {
   const [rsvps, setRsvps] = useState([]);
   useEffect(() => {
@@ -66,7 +65,6 @@ function RsvpList({ eventId }) {
   );
 }
 
-// ── Edit event modal ──
 function EditEventModal({ event, onClose }) {
   const [title,    setTitle]    = useState(event.title    || "");
   const [date,     setDate]     = useState(event.date     || "");
@@ -134,14 +132,13 @@ function EditEventModal({ event, onClose }) {
   );
 }
 
-// ── Main AdminPanel ──
 export default function AdminPanel() {
   const [pending,       setPending]       = useState([]);
   const [approved,      setApproved]      = useState([]);
   const [categories,    setCategories]    = useState([]);
   const [boardItems,    setBoardItems]    = useState([]);
   const [subscribers,   setSubscribers]   = useState([]);
-  const [tab,           setTab]           = useState("pending");
+  const [tab,           setTab]           = useState("calendar");
   const [newName,       setNewName]       = useState("");
   const [newColor,      setNewColor]      = useState(PALETTE[0]);
   const [addingCat,     setAddingCat]     = useState(false);
@@ -207,6 +204,7 @@ export default function AdminPanel() {
   const events = tab === "pending" ? pending : approved;
 
   const TABS = [
+    { key:"calendar",    label:"📅 calendar" },
     { key:"pending",     label:`pending${pending.length > 0 ? ` (${pending.length})` : ""}` },
     { key:"approved",    label:"approved" },
     { key:"board",       label:"board" },
@@ -216,6 +214,10 @@ export default function AdminPanel() {
 
   return (
     <div>
+
+      {/* ── Calendar view ── */}
+      {tab === "calendar" && <AdminCalendar />}
+
       {/* Tabs — scrollable on mobile */}
       <div style={{ display:"flex", gap:6, marginBottom:"1.5rem", overflowX:"auto", paddingBottom:4, scrollbarWidth:"none", msOverflowStyle:"none" }}>
         {TABS.map(t => (
@@ -281,7 +283,6 @@ export default function AdminPanel() {
                     </div>
                   </div>
 
-                  {/* RSVP list */}
                   {isExpanded && (
                     <div style={{ borderTop:"1px solid #f0f0f0", marginTop:12, paddingTop:12 }}>
                       <RsvpList eventId={ev.id} />
@@ -298,7 +299,6 @@ export default function AdminPanel() {
       {tab === "board" && (
         <div>
           <p style={{ fontSize:13, color:"#bbb", marginBottom:16 }}>Manage what appears on the Squad Board below the calendar.</p>
-
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
             {boardItems.length === 0 && (
               <p style={{ fontSize:13, color:"#ccc", textAlign:"center", padding:"1rem 0" }}>Nothing on the board yet</p>
@@ -318,7 +318,6 @@ export default function AdminPanel() {
               </div>
             ))}
           </div>
-
           {!addingBoard ? (
             <button onClick={() => setAddingBoard(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>
               + add to board
@@ -338,20 +337,16 @@ export default function AdminPanel() {
                   </button>
                 ))}
               </div>
-
               <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>title</label>
               <input value={boardTitle} onChange={e=>setBoardTitle(e.target.value)} placeholder={boardType==="announcement" ? "e.g. Summer rules 🌞" : "e.g. Camping trip?"} style={{ marginBottom:12 }} />
-
               <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>description (optional)</label>
               <textarea value={boardDesc} onChange={e=>setBoardDesc(e.target.value)} placeholder="more details…" style={{ resize:"vertical", height:60, marginBottom:12 }} />
-
               {boardType === "idea" && (
                 <>
                   <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>suggested by</label>
                   <input value={boardWho} onChange={e=>setBoardWho(e.target.value)} placeholder="Jake, the squad…" style={{ marginBottom:12 }} />
                 </>
               )}
-
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={() => setAddingBoard(false)} style={{ flex:1, padding:8, borderRadius:8, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}>cancel</button>
                 <button onClick={addBoardItem} style={{ flex:2, padding:8, borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13 }}>post to board</button>
