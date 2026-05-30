@@ -49,12 +49,12 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
       <div className="cal-nav" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
         <button
           onClick={() => changeMonth(-1)}
-          style={{ width:36, height:36, borderRadius:"50%", border:"1px solid #ddd", background:"rgba(255,255,255,0.6)", fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+          style={{ width:36, height:36, borderRadius:"50%", border:"1px solid #ddd", background:"rgba(255,255,255,0.6)", fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", touchAction:"manipulation" }}
         >‹</button>
         <span style={{ fontWeight:700, fontSize:20, color:"#3C3489" }}>{MONTHS[curMonth]} {curYear}</span>
         <button
           onClick={() => changeMonth(1)}
-          style={{ width:36, height:36, borderRadius:"50%", border:"1px solid #ddd", background:"rgba(255,255,255,0.6)", fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+          style={{ width:36, height:36, borderRadius:"50%", border:"1px solid #ddd", background:"rgba(255,255,255,0.6)", fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", touchAction:"manipulation" }}
         >›</button>
       </div>
 
@@ -70,26 +70,40 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
         {cells.map((cell, i) => {
           const key       = cell.current ? dateKey(curYear, curMonth, cell.day) : null;
           const dayEvents = key ? events.filter(e => e.date === key) : [];
-          const isToday   = cell.current && cell.day === today.getDate() && curMonth === today.getMonth() && curYear === today.getFullYear();
+          const isToday   = cell.current
+            && cell.day   === today.getDate()
+            && curMonth   === today.getMonth()
+            && curYear    === today.getFullYear();
+
           return (
             <div
               key={i}
-              className="cal-cell"
+              className={`cal-cell${cell.current ? " cal-cell-active" : ""}`}
               onClick={() => cell.current && onDayClick(dateKey(curYear, curMonth, cell.day))}
               style={{
-                background: cell.current ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
-                minHeight: 82, padding:"6px 5px",
-                cursor: cell.current ? "pointer" : "default",
+                background:   cell.current ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
+                minHeight:    82,
+                padding:      "6px 5px",
+                cursor:       cell.current ? "pointer" : "default",
                 borderRadius: 10,
-                border: isToday ? "2px solid #7F77DD" : "1px solid rgba(0,0,0,0.06)",
-                transition: "background 0.15s, transform 0.1s",
+                border:       isToday ? "2px solid #7F77DD" : "1px solid rgba(0,0,0,0.06)",
               }}
-              onMouseEnter={e => { if (cell.current) { e.currentTarget.style.background="rgba(255,255,255,0.92)"; e.currentTarget.style.transform="translateY(-1px)"; }}}
-              onMouseLeave={e => { e.currentTarget.style.background=cell.current?"rgba(255,255,255,0.65)":"rgba(255,255,255,0.2)"; e.currentTarget.style.transform="none"; }}
             >
               <div
                 className="cal-day-num"
-                style={{ width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"50%", background: isToday ? "#7F77DD" : "transparent", color: isToday ? "#fff" : cell.current ? "#333" : "#ccc", fontSize:12, fontWeight: isToday ? 700 : 500, marginBottom:3 }}
+                style={{
+                  width:        24,
+                  height:       24,
+                  display:      "flex",
+                  alignItems:   "center",
+                  justifyContent: "center",
+                  borderRadius: "50%",
+                  background:   isToday ? "#7F77DD" : "transparent",
+                  color:        isToday ? "#fff" : cell.current ? "#333" : "#ccc",
+                  fontSize:     12,
+                  fontWeight:   isToday ? 700 : 500,
+                  marginBottom: 3,
+                }}
               >
                 {cell.day}
               </div>
