@@ -5,6 +5,8 @@ import Calendar from "../components/Calendar";
 import SubmitForm from "../components/SubmitForm";
 import EventDetail from "../components/EventDetail";
 import Notifications from "../components/Notifications";
+import PushNotifications from "../components/PushNotifications";
+import Subscribe from "../components/Subscribe";
 
 const DEFAULT_COLORS = {
   hangout: { bg:"#CECBF6", color:"#3C3489" },
@@ -20,8 +22,14 @@ export default function Home() {
   const [selectedEvent, setSelectedEvent] = useState(null);
 
   useEffect(() => {
-    const u1 = onSnapshot(query(collection(db,"events"), where("status","==","approved")), s => setEvents(s.docs.map(d=>({id:d.id,...d.data()}))));
-    const u2 = onSnapshot(collection(db,"categories"), s => setCategories(s.docs.map(d=>({id:d.id,...d.data()}))));
+    const u1 = onSnapshot(
+      query(collection(db, "events"), where("status", "==", "approved")),
+      s => setEvents(s.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+    const u2 = onSnapshot(
+      collection(db, "categories"),
+      s => setCategories(s.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
     return () => { u1(); u2(); };
   }, []);
 
@@ -52,6 +60,7 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Calendar */}
         <Calendar
           events={events}
           categories={categories}
@@ -59,13 +68,29 @@ export default function Home() {
           onDayClick={date => { setSelectedDate(date); setShowForm(true); }}
           onEventClick={ev => setSelectedEvent(ev)}
         />
+
+        {/* Push notification banner */}
+        <PushNotifications />
+
+        {/* SMS/text subscribe */}
+        <Subscribe />
+
       </div>
 
+      {/* Modals */}
       {showForm && (
-        <SubmitForm defaultDate={selectedDate} categories={categories} onClose={() => { setShowForm(false); setSelectedDate(null); }} />
+        <SubmitForm
+          defaultDate={selectedDate}
+          categories={categories}
+          onClose={() => { setShowForm(false); setSelectedDate(null); }}
+        />
       )}
       {selectedEvent && (
-        <EventDetail event={selectedEvent} getCatColor={getCatColor} onClose={() => setSelectedEvent(null)} />
+        <EventDetail
+          event={selectedEvent}
+          getCatColor={getCatColor}
+          onClose={() => setSelectedEvent(null)}
+        />
       )}
     </div>
   );
