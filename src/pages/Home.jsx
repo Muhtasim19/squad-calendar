@@ -84,7 +84,6 @@ export default function Home() {
       {selectedEvent && (
         <EventDetail
           event={selectedEvent}
-          getCatColor={getCatColor}
           onClose={() => setSelectedEvent(null)}
         />
       )}

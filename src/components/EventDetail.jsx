@@ -19,8 +19,9 @@ function formatPhone(raw) {
   return digits.startsWith("1") ? `+${digits}` : `+1${digits}`;
 }
 
-export default function EventDetail({ event, getCatColor, onClose }) {
+export default function EventDetail({ event, onClose }) {
   const [rsvps,        setRsvps]        = useState([]);
+  const [categories,   setCategories]   = useState([]);
   const [showRsvpForm, setShowRsvpForm] = useState(false);
   const [nameInput,    setNameInput]    = useState("");
   const [phoneInput,   setPhoneInput]   = useState("");
@@ -30,12 +31,15 @@ export default function EventDetail({ event, getCatColor, onClose }) {
   const savedRsvpIds = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
   const myRsvpId     = savedRsvpIds[event.id];
 
-  // Safe color getter with built-in fallback
-  function getColor(type) {
-    if (typeof getCatColor === "function") return getCatColor(type);
-    return DEFAULT_COLORS[type] || { bg:"#E8E8E8", color:"#666" };
-  }
+  // Fetch categories internally — no prop needed
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "categories"), snap =>
+      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+    return () => unsub();
+  }, []);
 
+  // Fetch RSVPs
   useEffect(() => {
     const unsub = onSnapshot(
       collection(db, "events", event.id, "rsvps"),
@@ -44,6 +48,7 @@ export default function EventDetail({ event, getCatColor, onClose }) {
     return () => unsub();
   }, [event.id]);
 
+  // Pre-fill form from localStorage
   useEffect(() => {
     if (showRsvpForm) {
       setNameInput(savedName);
@@ -51,11 +56,16 @@ export default function EventDetail({ event, getCatColor, onClose }) {
     }
   }, [showRsvpForm]);
 
+  function getColor(type) {
+    const cat = categories.find(c => c.name === type);
+    return cat ? cat.color : (DEFAULT_COLORS[type] || { bg:"#E8E8E8", color:"#666" });
+  }
+
   async function rsvpIn(name, phone) {
     const formattedPhone = phone ? formatPhone(phone) : null;
     const fcmToken       = localStorage.getItem("squadcal_push") || null;
 
-    const ref = await addDoc(collection(db, "events", event.id, "rsvps"), {
+    await addDoc(collection(db, "events", event.id, "rsvps"), {
       name,
       phone:     formattedPhone,
       fcmToken,
@@ -73,7 +83,7 @@ export default function EventDetail({ event, getCatColor, onClose }) {
     localStorage.setItem("squadcal_name", name);
     if (formattedPhone) localStorage.setItem("squadcal_phone", formattedPhone);
     const ids = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
-    ids[event.id] = ref.id;
+    ids[event.id] = (await addDoc(collection(db, "events", event.id, "rsvps"), {})).id;
     localStorage.setItem("squadcal_rsvps", JSON.stringify(ids));
     setShowRsvpForm(false);
   }
@@ -157,20 +167,26 @@ export default function EventDetail({ event, getCatColor, onClose }) {
               ) : (
                 <>
                   <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>your name</label>
-                  <input value={nameInput} onChange={e=>setNameInput(e.target.value)} placeholder="what's your name?" autoFocus style={{ marginBottom:10 }} />
+                  <input value={nameInput} onChange={e => setNameInput(e.target.value)} placeholder="what's your name?" autoFocus style={{ marginBottom:10 }} />
                 </>
               )}
 
               <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>
                 📱 phone for 24h reminder <span style={{ color:"#ccc" }}>(optional)</span>
               </label>
-              <input value={phoneInput} onChange={e=>setPhoneInput(e.target.value)} placeholder="(555) 123-4567" type="tel" style={{ marginBottom:6 }} />
+              <input value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="(555) 123-4567" type="tel" style={{ marginBottom:6 }} />
               <p style={{ fontSize:11, color:"#ccc", marginBottom:12 }}>US numbers only. We'll text you 24h before.</p>
 
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={() => setShowRsvpForm(false)} style={{ flex:1, padding:8, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}>cancel</button>
+                <button onClick={() => setShowRsvpForm(false)} style={{ flex:1, padding:8, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}>
+                  cancel
+                </button>
                 <button
-                  onClick={() => { const name = savedName || nameInput.trim(); if (!name) return alert("Please enter your name!"); rsvpIn(name, phoneInput); }}
+                  onClick={() => {
+                    const name = savedName || nameInput.trim();
+                    if (!name) return alert("Please enter your name!");
+                    rsvpIn(name, phoneInput);
+                  }}
                   style={{ flex:2, padding:8, borderRadius:10, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13 }}
                 >
                   I'm in! 🙋
@@ -182,7 +198,13 @@ export default function EventDetail({ event, getCatColor, onClose }) {
           {/* Attendee list */}
           <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:4 }}>
             {rsvps.map(r => (
-              <span key={r.id} style={{ background: r.id===myRsvpId ? "#EEEDFE" : "#f5f5f5", color: r.id===myRsvpId ? "#3C3489" : "#555", padding:"4px 12px", borderRadius:20, fontSize:13, fontWeight: r.id===myRsvpId ? 700 : 400, display:"flex", alignItems:"center", gap:4 }}>
+              <span key={r.id} style={{
+                background: r.id === myRsvpId ? "#EEEDFE" : "#f5f5f5",
+                color:      r.id === myRsvpId ? "#3C3489" : "#555",
+                padding:"4px 12px", borderRadius:20, fontSize:13,
+                fontWeight: r.id === myRsvpId ? 700 : 400,
+                display:"flex", alignItems:"center", gap:4,
+              }}>
                 {r.id === myRsvpId ? "✓ " : ""}{r.name}
                 {r.phone    && <span style={{ fontSize:10, color:"#bbb" }}>📱</span>}
                 {r.fcmToken && <span style={{ fontSize:10, color:"#bbb" }}>🔔</span>}
