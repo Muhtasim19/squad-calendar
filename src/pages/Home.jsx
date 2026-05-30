@@ -84,7 +84,7 @@ export default function Home() {
         />
 
         {/* Push notification banner */}
-        <PushNotifications />
+        {/* <PushNotifications /> */}
 
       </div>
 
