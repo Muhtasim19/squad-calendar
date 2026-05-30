@@ -7,14 +7,21 @@ import { db } from "../firebase";
 
 const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 
+const DEFAULT_COLORS = {
+  hangout: { bg:"#CECBF6", color:"#3C3489" },
+  trip:    { bg:"#9FE1CB", color:"#085041" },
+  sports:  { bg:"#FAC775", color:"#633806" },
+};
+
 function formatPhone(raw) {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return null;
   return digits.startsWith("1") ? `+${digits}` : `+1${digits}`;
 }
 
-export default function EventDetail({ event, getCatColor, onClose }) {
+export default function EventDetail({ event, onClose }) {
   const [rsvps,        setRsvps]        = useState([]);
+  const [categories,   setCategories]   = useState([]);
   const [showRsvpForm, setShowRsvpForm] = useState(false);
   const [nameInput,    setNameInput]    = useState("");
   const [phoneInput,   setPhoneInput]   = useState("");
@@ -25,6 +32,13 @@ export default function EventDetail({ event, getCatColor, onClose }) {
   const myRsvpId     = savedRsvpIds[event.id];
 
   useEffect(() => {
+    const unsub = onSnapshot(collection(db, "categories"), snap =>
+      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
     const unsub = onSnapshot(
       collection(db, "events", event.id, "rsvps"),
       snap => setRsvps(snap.docs.map(d => ({ id: d.id, ...d.data() })))
@@ -32,7 +46,6 @@ export default function EventDetail({ event, getCatColor, onClose }) {
     return () => unsub();
   }, [event.id]);
 
-  // Pre-fill from localStorage when form opens
   useEffect(() => {
     if (showRsvpForm) {
       setNameInput(savedName);
@@ -40,18 +53,22 @@ export default function EventDetail({ event, getCatColor, onClose }) {
     }
   }, [showRsvpForm]);
 
+  function getColor(type) {
+    const cat = categories.find(c => c.name === type);
+    return cat ? cat.color : (DEFAULT_COLORS[type] || { bg:"#E8E8E8", color:"#666" });
+  }
+
   async function rsvpIn(name, phone) {
     const formattedPhone = phone ? formatPhone(phone) : null;
     const fcmToken       = localStorage.getItem("squadcal_push") || null;
 
     const ref = await addDoc(collection(db, "events", event.id, "rsvps"), {
       name,
-      phone:    formattedPhone,
+      phone:     formattedPhone,
       fcmToken,
       timestamp: serverTimestamp(),
     });
 
-    // In-app notification
     await addDoc(collection(db, "notifications"), {
       message:    `${name} is going to "${event.title}" 🙋`,
       type:       "rsvp",
@@ -60,7 +77,6 @@ export default function EventDetail({ event, getCatColor, onClose }) {
       createdAt:  serverTimestamp(),
     });
 
-    // Save to localStorage
     localStorage.setItem("squadcal_name", name);
     if (formattedPhone) localStorage.setItem("squadcal_phone", formattedPhone);
     const ids = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
@@ -78,7 +94,7 @@ export default function EventDetail({ event, getCatColor, onClose }) {
   }
 
   const isGoing = !!myRsvpId && rsvps.some(r => r.id === myRsvpId);
-  const c       = getCatColor(event.type);
+  const c       = getColor(event.type);
   const dateStr = new Date(event.date + "T12:00:00").toLocaleDateString("en-US", {
     weekday:"long", month:"long", day:"numeric"
   });
@@ -103,10 +119,7 @@ export default function EventDetail({ event, getCatColor, onClose }) {
               {event.title}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#bbb", lineHeight:1 }}
-          >✕</button>
+          <button onClick={onClose} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#bbb", lineHeight:1 }}>✕</button>
         </div>
 
         {/* Details */}
@@ -124,35 +137,25 @@ export default function EventDetail({ event, getCatColor, onClose }) {
           </div>
         )}
 
-        {/* RSVP section */}
+        {/* RSVP */}
         <div style={{ borderTop:"1px solid #eee", paddingTop:16 }}>
-
-          {/* Count + button row */}
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <span style={{ fontWeight:700, fontSize:15, color:"#333" }}>
               {rsvps.length === 0 ? "Be the first!" : `${rsvps.length} going`}
             </span>
             {isGoing ? (
-              <button
-                onClick={rsvpOut}
-                style={{ padding:"7px 16px", borderRadius:20, border:"1px solid #F09595", background:"none", color:"#A32D2D", fontSize:12, cursor:"pointer", fontWeight:600 }}
-              >
+              <button onClick={rsvpOut} style={{ padding:"7px 16px", borderRadius:20, border:"1px solid #F09595", background:"none", color:"#A32D2D", fontSize:12, cursor:"pointer", fontWeight:600 }}>
                 I'm out
               </button>
             ) : !showRsvpForm ? (
-              <button
-                onClick={() => setShowRsvpForm(true)}
-                style={{ padding:"7px 16px", borderRadius:20, background:"#7F77DD", color:"#fff", border:"none", fontSize:13, cursor:"pointer", fontWeight:700 }}
-              >
+              <button onClick={() => setShowRsvpForm(true)} style={{ padding:"7px 16px", borderRadius:20, background:"#7F77DD", color:"#fff", border:"none", fontSize:13, cursor:"pointer", fontWeight:700 }}>
                 I'm in! 🙋
               </button>
             ) : null}
           </div>
 
-          {/* RSVP form */}
           {showRsvpForm && (
             <div style={{ background:"rgba(127,119,221,0.05)", borderRadius:12, padding:"1rem", marginBottom:12, border:"1px solid rgba(127,119,221,0.15)" }}>
-
               {savedName ? (
                 <p style={{ fontSize:13, color:"#555", marginBottom:10 }}>
                   Going as <strong style={{ color:"#3C3489" }}>{savedName}</strong>
@@ -160,35 +163,18 @@ export default function EventDetail({ event, getCatColor, onClose }) {
               ) : (
                 <>
                   <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>your name</label>
-                  <input
-                    value={nameInput}
-                    onChange={e => setNameInput(e.target.value)}
-                    placeholder="what's your name?"
-                    autoFocus
-                    style={{ marginBottom:10 }}
-                  />
+                  <input value={nameInput} onChange={e => setNameInput(e.target.value)} placeholder="what's your name?" autoFocus style={{ marginBottom:10 }} />
                 </>
               )}
 
               <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>
                 📱 phone for 24h reminder <span style={{ color:"#ccc" }}>(optional)</span>
               </label>
-              <input
-                value={phoneInput}
-                onChange={e => setPhoneInput(e.target.value)}
-                placeholder="(555) 123-4567"
-                type="tel"
-                style={{ marginBottom:6 }}
-              />
-              <p style={{ fontSize:11, color:"#ccc", marginBottom:12 }}>
-                We'll text you 24h before the event. US numbers only.
-              </p>
+              <input value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="(555) 123-4567" type="tel" style={{ marginBottom:6 }} />
+              <p style={{ fontSize:11, color:"#ccc", marginBottom:12 }}>US numbers only. We'll text 24h before.</p>
 
               <div style={{ display:"flex", gap:8 }}>
-                <button
-                  onClick={() => setShowRsvpForm(false)}
-                  style={{ flex:1, padding:8, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}
-                >
+                <button onClick={() => setShowRsvpForm(false)} style={{ flex:1, padding:8, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}>
                   cancel
                 </button>
                 <button
@@ -205,7 +191,6 @@ export default function EventDetail({ event, getCatColor, onClose }) {
             </div>
           )}
 
-          {/* Who's going list */}
           <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:4 }}>
             {rsvps.map(r => (
               <span key={r.id} style={{
@@ -216,7 +201,7 @@ export default function EventDetail({ event, getCatColor, onClose }) {
                 display:"flex", alignItems:"center", gap:4,
               }}>
                 {r.id === myRsvpId ? "✓ " : ""}{r.name}
-                {r.phone && <span style={{ fontSize:10, color:"#bbb" }}>📱</span>}
+                {r.phone    && <span style={{ fontSize:10, color:"#bbb" }}>📱</span>}
                 {r.fcmToken && <span style={{ fontSize:10, color:"#bbb" }}>🔔</span>}
               </span>
             ))}
