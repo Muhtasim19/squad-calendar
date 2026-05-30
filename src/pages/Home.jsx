@@ -6,7 +6,6 @@ import SubmitForm from "../components/SubmitForm";
 import EventDetail from "../components/EventDetail";
 import Notifications from "../components/Notifications";
 import PushNotifications from "../components/PushNotifications";
-import Subscribe from "../components/Subscribe";
 
 const DEFAULT_COLORS = {
   hangout: { bg:"#CECBF6", color:"#3C3489" },
@@ -71,9 +70,6 @@ export default function Home() {
 
         {/* Push notification banner */}
         <PushNotifications />
-
-        {/* SMS/text subscribe */}
-        <Subscribe />
 
       </div>
 
