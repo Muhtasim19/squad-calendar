@@ -42,7 +42,10 @@ export default function Home() {
       <div className="page-card">
 
         {/* Header */}
-        <div className="home-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
+        <div
+          className="home-header"
+          style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}
+        >
           <div>
             <h1 style={{ fontSize:24, fontWeight:700, color:"#3C3489" }}>Squad Calendar</h1>
             <p style={{ fontSize:13, color:"#aaa", marginTop:2 }}>Plan together, show up together</p>
@@ -51,7 +54,11 @@ export default function Home() {
             <Notifications />
             <button
               className="suggest-btn"
-              onClick={() => { setSelectedDate(null); setShowForm(true); }}
+              onClick={() => {
+                setSelectedEvent(null);
+                setSelectedDate(null);
+                setShowForm(true);
+              }}
               style={{ padding:"9px 18px", borderRadius:10, background:"#7F77DD", color:"#fff", border:"none", fontWeight:600, fontSize:14, cursor:"pointer" }}
             >
               + suggest a plan
@@ -64,8 +71,16 @@ export default function Home() {
           events={events}
           categories={categories}
           getCatColor={getCatColor}
-          onDayClick={date => { setSelectedDate(date); setShowForm(true); }}
-          onEventClick={ev => setSelectedEvent(ev)}
+          onDayClick={date => {
+            setSelectedEvent(null);
+            setSelectedDate(date);
+            setShowForm(true);
+          }}
+          onEventClick={ev => {
+            setShowForm(false);
+            setSelectedDate(null);
+            setSelectedEvent(ev);
+          }}
         />
 
         {/* Push notification banner */}
@@ -73,15 +88,15 @@ export default function Home() {
 
       </div>
 
-      {/* Modals */}
-      {showForm && (
+      {/* Only one modal shows at a time */}
+      {showForm && !selectedEvent && (
         <SubmitForm
           defaultDate={selectedDate}
           categories={categories}
           onClose={() => { setShowForm(false); setSelectedDate(null); }}
         />
       )}
-      {selectedEvent && (
+      {selectedEvent && !showForm && (
         <EventDetail
           event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
