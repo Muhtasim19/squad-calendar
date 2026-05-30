@@ -22,6 +22,34 @@ export default function Admin() {
     const unsub = onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
     return () => unsub();
   }, []);
+  // Swap manifest to /admin when on admin page
+  useEffect(() => {
+    const adminManifest = {
+      short_name:       "SquadAdmin",
+      name:             "Squad Calendar Admin",
+      description:      "Admin panel for Squad Calendar",
+      start_url:        "/admin",
+      display:          "standalone",
+      theme_color:      "#7F77DD",
+      background_color: "#0f0e1a",
+      icons: [
+        { src:"logo192.png", type:"image/png", sizes:"192x192" },
+        { src:"logo512.png", type:"image/png", sizes:"512x512" },
+      ],
+    };
+
+    const blob        = new Blob([JSON.stringify(adminManifest)], { type:"application/json" });
+    const manifestURL = URL.createObjectURL(blob);
+    const link        = document.querySelector('link[rel="manifest"]');
+    const original    = link?.href;
+
+    if (link) link.href = manifestURL;
+
+    return () => {
+      if (link && original) link.href = original;
+      URL.revokeObjectURL(manifestURL);
+    };
+  }, []);
 
   async function handleLogin() {
     setError("");
