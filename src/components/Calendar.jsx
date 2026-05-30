@@ -116,17 +116,23 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
   function dateKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   }
+
   function isToday(date) {
-    return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+    return date.getDate()     === today.getDate()
+        && date.getMonth()    === today.getMonth()
+        && date.getFullYear() === today.getFullYear();
   }
+
   function eventsForDate(date) {
     return events.filter(e => e.date === dateKey(date));
   }
+
   function getWeekStart(date) {
     const d = new Date(date);
     d.setDate(d.getDate() - d.getDay());
     return d;
   }
+
   function getWeekDays(date) {
     const start = getWeekStart(date);
     return Array.from({ length: 7 }, (_, i) => {
@@ -160,12 +166,12 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
   }
 
   // ── Month view cells ──
-  const yr  = focusDate.getFullYear();
-  const mo  = focusDate.getMonth();
+  const yr          = focusDate.getFullYear();
+  const mo          = focusDate.getMonth();
   const firstDay    = new Date(yr, mo, 1).getDay();
   const daysInMonth = new Date(yr, mo + 1, 0).getDate();
   const prevDays    = new Date(yr, mo, 0).getDate();
-  const cells = [];
+  const cells       = [];
   for (let i = 0; i < firstDay; i++) cells.push({ day: prevDays - firstDay + 1 + i, current: false });
   for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, current: true });
   const rem = (7 - cells.length % 7) % 7;
@@ -191,13 +197,14 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
               color:       view===v ? (darkMode ? "#9B94FF" : "#3C3489") : t.textSec,
               fontWeight:  view===v ? 700 : 400,
               boxShadow:   view===v ? "0 1px 4px rgba(0,0,0,0.15)" : "none",
-              transition:  "all 0.15s", touchAction:"manipulation",
+              transition:  "all 0.15s",
+              touchAction: "manipulation",
             }}>{v}</button>
           ))}
         </div>
       </div>
 
-      {/* ── Nav (not shown in day view — has its own) ── */}
+      {/* ── Nav (hidden in day view — has its own) ── */}
       {view !== "day" && (
         <div className="cal-nav" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
           <button onClick={() => navigate(-1)} style={{ width:36, height:36, borderRadius:"50%", border:`1px solid ${t.cellBorder}`, background:t.navBg, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", touchAction:"manipulation", color:t.text }}>‹</button>
@@ -212,7 +219,8 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
           {Array.from({ length: 12 }, (_, m) => (
             <MiniMonth
               key={m}
-              year={yr} month={m}
+              year={yr}
+              month={m}
               events={events}
               darkMode={darkMode}
               today={today}
@@ -241,8 +249,13 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
               return (
                 <div key={i}
                   className={`cal-cell${cell.current ? " cal-cell-active" : ""}`}
-                  onClick={() => { if (!cell.current) return; const d = new Date(yr, mo, cell.day); setFocusDate(d); onDayClick(dateKey(d)); }}
-                  style={{ background: cell.current ? t.cellBg : t.cellBgOther, minHeight:82, padding:"6px 5px", cursor: cell.current ? "pointer" : "default", borderRadius:10, border: tod ? `2px solid #7F77DD` : `1px solid ${t.cellBorder}` }}
+                  onClick={() => {
+                    if (!cell.current) return;
+                    const d = new Date(yr, mo, cell.day);
+                    setFocusDate(d);
+                    onDayClick(dateKey(d));
+                  }}
+                  style={{ background: cell.current ? t.cellBg : t.cellBgOther, minHeight:82, padding:"6px 5px", cursor: cell.current ? "pointer" : "default", borderRadius:10, border: tod ? "2px solid #7F77DD" : `1px solid ${t.cellBorder}` }}
                 >
                   <div className="cal-day-num" style={{ width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"50%", background: tod ? "#7F77DD" : "transparent", color: tod ? "#fff" : cell.current ? t.text : t.textMuted, fontSize:12, fontWeight: tod ? 700 : 500, marginBottom:3 }}>
                     {cell.day}
@@ -250,7 +263,9 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
                   {dayEvents.slice(0,2).map(ev => (
                     <EventPill key={ev.id} event={ev} color={getCatColor(ev.type)} onClick={() => onEventClick && onEventClick(ev)} />
                   ))}
-                  {dayEvents.length > 2 && <div style={{ fontSize:10, color:t.textMuted }}>+{dayEvents.length-2} more</div>}
+                  {dayEvents.length > 2 && (
+                    <div style={{ fontSize:10, color:t.textMuted }}>+{dayEvents.length-2} more</div>
+                  )}
                 </div>
               );
             })}
@@ -263,7 +278,7 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
           {getWeekDays(focusDate).map((day, i) => {
             const dayEvents = eventsForDate(day);
-            const tod = isToday(day);
+            const tod       = isToday(day);
             return (
               <div key={i}
                 onClick={() => { setFocusDate(day); onDayClick(dateKey(day)); }}
@@ -278,7 +293,9 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
                 {dayEvents.slice(0,3).map(ev => (
                   <EventPill key={ev.id} event={ev} color={getCatColor(ev.type)} onClick={() => onEventClick && onEventClick(ev)} />
                 ))}
-                {dayEvents.length > 3 && <div style={{ fontSize:9, color:t.textMuted, textAlign:"center" }}>+{dayEvents.length-3}</div>}
+                {dayEvents.length > 3 && (
+                  <div style={{ fontSize:9, color:t.textMuted, textAlign:"center" }}>+{dayEvents.length-3}</div>
+                )}
               </div>
             );
           })}
@@ -295,6 +312,7 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
 
         return (
           <div>
+
             {/* Week strip + nav */}
             <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:12 }}>
               <button onClick={() => navigate(-1)} style={{ width:28, height:28, borderRadius:"50%", border:`1px solid ${t.cellBorder}`, background:"transparent", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:t.text, flexShrink:0 }}>‹</button>
@@ -321,20 +339,22 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
             </div>
 
             {/* Day header */}
-            <div style={{ fontSize:14, fontWeight:700, color:t.text, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${t.timeLine}` }}>
+            <div style={{ fontSize:14, fontWeight:700, color:t.text, paddingBottom:8, borderBottom:`1px solid ${t.timeLine}` }}>
               {focusDate.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}
             </div>
 
             {/* All-day events */}
             {allDayEvs.length > 0 && (
-              <div style={{ marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${t.timeLine}` }}>
+              <div style={{ marginTop:8, paddingBottom:8, borderBottom:`1px solid ${t.timeLine}` }}>
                 <div style={{ fontSize:10, color:t.textMuted, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>all day</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                   {allDayEvs.map(ev => {
                     const c = getCatColor(ev.type);
                     return (
-                      <div key={ev.id} onClick={() => onEventClick && onEventClick(ev)}
-                        style={{ background:c.bg, color:c.color, borderRadius:8, padding:"6px 10px", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+                      <div key={ev.id}
+                        onClick={() => onEventClick && onEventClick(ev)}
+                        style={{ background:c.bg, color:c.color, borderRadius:8, padding:"6px 10px", fontSize:13, fontWeight:600, cursor:"pointer" }}
+                      >
                         {ev.title}
                         {ev.location && <span style={{ fontSize:11, opacity:0.7 }}> · {ev.location}</span>}
                       </div>
@@ -344,76 +364,65 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
               </div>
             )}
 
-            {/* Empty day */}
-            {dayEvents.length === 0 && (
-              <div style={{ textAlign:"center", padding:"2.5rem 0", color:t.textMuted }}>
-                <div style={{ fontSize:40, marginBottom:10 }}>📅</div>
-                <p style={{ fontSize:14, marginBottom:14 }}>Nothing planned for this day</p>
-                <button onClick={() => onDayClick(dateKey(focusDate))} style={{ padding:"8px 18px", borderRadius:20, background:"#7F77DD", color:"#fff", border:"none", fontSize:13, fontWeight:600, cursor:"pointer" }}>
-                  + suggest a plan
-                </button>
-              </div>
-            )}
+            {/* ── Time grid — ALWAYS SHOWN ── */}
+            <div style={{ position:"relative", height:`${(DAY_END - DAY_START) * HOUR_HEIGHT}px`, marginTop:8 }}>
 
-            {/* Time grid */}
-            {(timedEvs.length > 0 || allDayEvs.length > 0 || dayEvents.length === 0 ? false : true) || dayEvents.length > 0 ? (
-              <div style={{ position:"relative", height:`${(DAY_END - DAY_START) * HOUR_HEIGHT}px`, marginTop:4 }}>
+              {/* Hour lines */}
+              {hours.map(h => (
+                <div key={h} style={{ position:"absolute", top:`${(h - DAY_START) * HOUR_HEIGHT}px`, left:0, right:0, display:"flex", alignItems:"flex-start" }}>
+                  <span style={{ fontSize:10, color:t.timeText, fontWeight:600, width:46, flexShrink:0, paddingTop:2, textAlign:"right", paddingRight:8 }}>
+                    {formatHour(h)}
+                  </span>
+                  <div style={{ flex:1, borderTop:`1px solid ${t.timeLine}`, height:`${HOUR_HEIGHT}px` }} />
+                </div>
+              ))}
 
-                {/* Hour lines */}
-                {hours.map(h => (
-                  <div key={h} style={{ position:"absolute", top:`${(h - DAY_START) * HOUR_HEIGHT}px`, left:0, right:0, display:"flex", alignItems:"flex-start" }}>
-                    <span style={{ fontSize:10, color:t.timeText, fontWeight:600, width:46, flexShrink:0, paddingTop:2, textAlign:"right", paddingRight:8 }}>
-                      {formatHour(h)}
-                    </span>
-                    <div style={{ flex:1, borderTop:`1px solid ${t.timeLine}`, height:`${HOUR_HEIGHT}px` }} />
+              {/* Timed events on the grid */}
+              {timedEvs.map(ev => {
+                const hrs = parseTimeHours(ev.time);
+                if (hrs === null || hrs < DAY_START || hrs > DAY_END) return null;
+                const top = (hrs - DAY_START) * HOUR_HEIGHT;
+                const c   = getCatColor(ev.type);
+                return (
+                  <div key={ev.id}
+                    onClick={() => onEventClick && onEventClick(ev)}
+                    style={{ position:"absolute", top:`${top}px`, left:52, right:0, background:c.bg, color:c.color, borderRadius:10, padding:"8px 10px", cursor:"pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.12)", minHeight:44, zIndex:1, borderLeft:`3px solid ${c.color}` }}
+                  >
+                    <div style={{ fontWeight:700, fontSize:13 }}>{ev.title}</div>
+                    <div style={{ fontSize:11, opacity:0.75, marginTop:2 }}>
+                      {ev.time}{ev.location ? ` · ${ev.location}` : ""}
+                    </div>
                   </div>
-                ))}
+                );
+              })}
 
-                {/* Timed events */}
-                {timedEvs.map(ev => {
-                  const hrs = parseTimeHours(ev.time);
-                  if (hrs === null || hrs < DAY_START || hrs > DAY_END) return null;
-                  const top = (hrs - DAY_START) * HOUR_HEIGHT;
-                  const c   = getCatColor(ev.type);
-                  return (
-                    <div key={ev.id}
-                      onClick={() => onEventClick && onEventClick(ev)}
-                      style={{ position:"absolute", top:`${top}px`, left:52, right:0, background:c.bg, color:c.color, borderRadius:10, padding:"8px 10px", cursor:"pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.12)", minHeight:44, zIndex:1, borderLeft:`3px solid ${c.color}` }}
-                    >
-                      <div style={{ fontWeight:700, fontSize:13 }}>{ev.title}</div>
-                      <div style={{ fontSize:11, opacity:0.75, marginTop:2 }}>
-                        {ev.time}{ev.location ? ` · ${ev.location}` : ""}
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Red current time line — today only */}
+              {isToday(focusDate) && (() => {
+                const now  = new Date();
+                const nowH = now.getHours() + now.getMinutes() / 60;
+                if (nowH < DAY_START || nowH > DAY_END) return null;
+                const top  = (nowH - DAY_START) * HOUR_HEIGHT;
+                return (
+                  <div style={{ position:"absolute", top:`${top}px`, left:46, right:0, height:2, background:"#E53E3E", zIndex:2, display:"flex", alignItems:"center" }}>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:"#E53E3E", marginLeft:-4, flexShrink:0 }} />
+                  </div>
+                );
+              })()}
+            </div>
 
-                {/* Current time red line */}
-                {isToday(focusDate) && (() => {
-                  const now  = new Date();
-                  const nowH = now.getHours() + now.getMinutes() / 60;
-                  if (nowH < DAY_START || nowH > DAY_END) return null;
-                  const top = (nowH - DAY_START) * HOUR_HEIGHT;
-                  return (
-                    <div style={{ position:"absolute", top:`${top}px`, left:46, right:0, height:2, background:"#E53E3E", zIndex:2, display:"flex", alignItems:"center" }}>
-                      <div style={{ width:8, height:8, borderRadius:"50%", background:"#E53E3E", marginLeft:-4, flexShrink:0 }} />
-                    </div>
-                  );
-                })()}
-              </div>
-            ) : null}
+            {/* Suggest a plan button — always visible at bottom */}
+            <button
+              onClick={() => onDayClick(dateKey(focusDate))}
+              style={{ width:"100%", padding:"10px", borderRadius:12, border:`1.5px dashed ${t.cellBorder}`, background:"none", color:t.textMuted, fontSize:13, cursor:"pointer", marginTop:12 }}
+            >
+              + suggest a plan for this day
+            </button>
 
-            {/* Suggest plan button */}
-            {dayEvents.length > 0 && (
-              <button onClick={() => onDayClick(dateKey(focusDate))} style={{ width:"100%", padding:"10px", borderRadius:12, border:`1.5px dashed ${t.cellBorder}`, background:"none", color:t.textMuted, fontSize:13, cursor:"pointer", marginTop:12 }}>
-                + suggest a plan for this day
-              </button>
-            )}
           </div>
         );
       })()}
 
-      {/* ── Legend ── */}
+      {/* ── Legend (hidden in year view) ── */}
       {view !== "year" && (
         <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
           {allCats.map(cat => (
@@ -424,6 +433,7 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
           ))}
         </div>
       )}
+
     </div>
   );
 }
