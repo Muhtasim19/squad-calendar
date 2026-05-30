@@ -6,6 +6,7 @@ import SubmitForm from "../components/SubmitForm";
 import EventDetail from "../components/EventDetail";
 import Notifications from "../components/Notifications";
 import PushNotifications from "../components/PushNotifications";
+import SquadBoard from "../components/SquadBoard";
 
 const DEFAULT_COLORS = {
   hangout: { bg:"#CECBF6", color:"#3C3489" },
@@ -22,12 +23,12 @@ export default function Home() {
 
   useEffect(() => {
     const u1 = onSnapshot(
-      query(collection(db, "events"), where("status", "==", "approved")),
-      s => setEvents(s.docs.map(d => ({ id: d.id, ...d.data() })))
+      query(collection(db,"events"), where("status","==","approved")),
+      s => setEvents(s.docs.map(d => ({ id:d.id, ...d.data() })))
     );
     const u2 = onSnapshot(
-      collection(db, "categories"),
-      s => setCategories(s.docs.map(d => ({ id: d.id, ...d.data() })))
+      collection(db,"categories"),
+      s => setCategories(s.docs.map(d => ({ id:d.id, ...d.data() })))
     );
     return () => { u1(); u2(); };
   }, []);
@@ -42,10 +43,7 @@ export default function Home() {
       <div className="page-card">
 
         {/* Header */}
-        <div
-          className="home-header"
-          style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}
-        >
+        <div className="home-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
           <div>
             <h1 style={{ fontSize:24, fontWeight:700, color:"#3C3489" }}>Squad Calendar</h1>
             <p style={{ fontSize:13, color:"#aaa", marginTop:2 }}>Plan together, show up together</p>
@@ -54,11 +52,7 @@ export default function Home() {
             <Notifications />
             <button
               className="suggest-btn"
-              onClick={() => {
-                setSelectedEvent(null);
-                setSelectedDate(null);
-                setShowForm(true);
-              }}
+              onClick={() => { setSelectedEvent(null); setSelectedDate(null); setShowForm(true); }}
               style={{ padding:"9px 18px", borderRadius:10, background:"#7F77DD", color:"#fff", border:"none", fontWeight:600, fontSize:14, cursor:"pointer" }}
             >
               + suggest a plan
@@ -71,24 +65,18 @@ export default function Home() {
           events={events}
           categories={categories}
           getCatColor={getCatColor}
-          onDayClick={date => {
-            setSelectedEvent(null);
-            setSelectedDate(date);
-            setShowForm(true);
-          }}
-          onEventClick={ev => {
-            setShowForm(false);
-            setSelectedDate(null);
-            setSelectedEvent(ev);
-          }}
+          onDayClick={date => { setSelectedEvent(null); setSelectedDate(date); setShowForm(true); }}
+          onEventClick={ev => { setShowForm(false); setSelectedDate(null); setSelectedEvent(ev); }}
         />
 
         {/* Push notification banner */}
-        {/* <PushNotifications /> */}
+        <PushNotifications />
+
+        {/* Squad Board */}
+        <SquadBoard />
 
       </div>
 
-      {/* Only one modal shows at a time */}
       {showForm && !selectedEvent && (
         <SubmitForm
           defaultDate={selectedDate}
