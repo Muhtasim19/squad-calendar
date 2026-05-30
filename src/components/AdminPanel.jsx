@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
 const PALETTE = [
@@ -47,7 +47,21 @@ export default function AdminPanel() {
     return () => { u1(); u2(); u3(); };
   }, []);
 
-  const approve   = id => updateDoc(doc(db,"events",id), { status:"approved" });
+  // ← updated approve with notification
+  async function approve(id) {
+    const ev = pending.find(e => e.id === id);
+    await updateDoc(doc(db, "events", id), { status: "approved" });
+    if (ev) {
+      await addDoc(collection(db, "notifications"), {
+        message: `"${ev.title}" has been approved! 🎉`,
+        type: "approved",
+        eventTitle: ev.title,
+        eventId: id,
+        createdAt: serverTimestamp(),
+      });
+    }
+  }
+
   const reject    = id => deleteDoc(doc(db,"events",id));
   const remove    = id => deleteDoc(doc(db,"events",id));
   const deleteCat = id => deleteDoc(doc(db,"categories",id));
@@ -99,13 +113,11 @@ export default function AdminPanel() {
               return (
                 <div key={ev.id} style={{ background:"rgba(255,255,255,0.8)", border:"1px solid rgba(255,255,255,0.6)", borderRadius:12, padding:"1rem 1.25rem", display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, backdropFilter:"blur(8px)", boxShadow:"0 2px 12px rgba(0,0,0,0.04)" }}>
                   <div style={{ flex:1 }}>
-                    {/* Type badge + title */}
                     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
                       <span style={{ background:c.bg, color:c.color, fontSize:11, padding:"2px 10px", borderRadius:20, fontWeight:700 }}>{ev.type}</span>
                       <span style={{ fontWeight:700, fontSize:15 }}>{ev.title}</span>
                       <RsvpCount eventId={ev.id} />
                     </div>
-                    {/* Details */}
                     <div style={{ fontSize:13, color:"#888", display:"flex", flexDirection:"column", gap:3 }}>
                       <span>📅 {ev.date}{ev.time ? ` at ${ev.time}` : ""}</span>
                       {ev.location && <span>📍 {ev.location}</span>}
@@ -114,7 +126,6 @@ export default function AdminPanel() {
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                     {tab === "pending" ? (
                       <>

@@ -25,6 +25,14 @@ export default function EventDetail({ event, getCatColor, onClose }) {
     const ref = await addDoc(collection(db, "events", event.id, "rsvps"), {
       name, timestamp: serverTimestamp()
     });
+    // Notify squad someone joined
+    await addDoc(collection(db, "notifications"), {
+      message: `${name} is going to "${event.title}" 🙋`,
+      type: "rsvp",
+      eventTitle: event.title,
+      eventId: event.id,
+      createdAt: serverTimestamp(),
+    });
     localStorage.setItem("squadcal_name", name);
     const ids = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
     ids[event.id] = ref.id;
