@@ -4,6 +4,7 @@ const { onSchedule }        = require("firebase-functions/v2/scheduler");
 const { onCall }            = require("firebase-functions/v2/https");
 const admin                 = require("firebase-admin");
 const https                 = require("https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -84,6 +85,27 @@ exports.notifyOnApproval = onDocumentUpdated("events/{eventId}", async (event) =
       tokens,
     });
   } catch (err) { console.error("FCM error:", err); }
+  return null;
+});
+
+// ── 1b. FCM push when admin directly creates an approved event ──
+exports.notifyOnCreate = onDocumentCreated("events/{eventId}", async (event) => {
+  const data = event.data?.data();
+  if (!data || data.status !== "approved") return null; // only approved events
+
+  const tokensSnap = await db.collection("fcmTokens").get();
+  const tokens = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
+  if (tokens.length === 0) return null;
+
+  try {
+    await admin.messaging().sendEachForMulticast({
+      notification: {
+        title: "New plan added! 🎉",
+        body:  `"${data.title}" is on ${data.date}`,
+      },
+      tokens,
+    });
+  } catch (err) { console.error("FCM create error:", err); }
   return null;
 });
 

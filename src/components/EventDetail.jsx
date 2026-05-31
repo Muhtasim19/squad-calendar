@@ -62,6 +62,7 @@ export default function EventDetail({ event, onClose }) {
     const formattedPhone = phone ? formatPhone(phone) : null;
     const fcmToken       = localStorage.getItem("squadcal_push") || null;
 
+    // ✅ Save ref from first addDoc — no second addDoc needed
     const rsvpRef = await addDoc(collection(db, "events", event.id, "rsvps"), {
       name,
       phone:     formattedPhone,
@@ -80,7 +81,7 @@ export default function EventDetail({ event, onClose }) {
     localStorage.setItem("squadcal_name", name);
     if (formattedPhone) localStorage.setItem("squadcal_phone", formattedPhone);
     const ids = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
-    ids[event.id] = rsvpRef.id;
+    ids[event.id] = rsvpRef.id; // ✅ Use ref from above, not a new empty addDoc
     localStorage.setItem("squadcal_rsvps", JSON.stringify(ids));
     setShowRsvpForm(false);
   }
