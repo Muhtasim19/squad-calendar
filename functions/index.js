@@ -43,13 +43,20 @@ function sendSMS(phone, message) {
 }
 
 // ── Helper: get contact phones by IDs ──
+function cleanPhone(raw) {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return raw;
+}
+
 async function getPhonesForContacts(contactIds) {
   const phones = [];
   for (const cid of contactIds) {
     try {
       const cdoc = await db.collection("contacts").doc(cid).get();
       if (cdoc.exists && cdoc.data().phone) {
-        phones.push(cdoc.data().phone);
+        phones.push(cleanPhone(cdoc.data().phone));
       }
     } catch (err) {
       console.error(`Error fetching contact ${cid}:`, err);
@@ -150,7 +157,7 @@ exports.sendSmsReminders = onSchedule({
     let msg = `📅 "${ev.title}" is tomorrow`;
     if (ev.time)     msg += ` at ${ev.time}`;
     if (ev.location) msg += `\n📍 ${ev.location}`;
-    msg += `\nSee you there! 🎉\n${CALENDAR_LINK}`;
+    msg += `\nSee you there! 🎉`;
 
     for (const phone of phones) {
       try {
@@ -174,7 +181,7 @@ exports.sendCustomSms = onCall(async (request) => {
   const phones = await getPhonesForContacts(contactIds);
   if (phones.length === 0) return { sent: 0, total: contactIds.length };
 
-  const fullMessage = `${message}\n${CALENDAR_LINK}`;
+  const fullMessage = message;
   let sent = 0;
 
   for (const phone of phones) {
