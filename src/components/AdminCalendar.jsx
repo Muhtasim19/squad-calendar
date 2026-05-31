@@ -244,6 +244,17 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
               {event.location && <span>📍 {event.location}</span>}
               {event.note     && <span>📝 {event.note}</span>}
             </div>
+
+            {/* ── Map ── */}
+            {event.lat && event.lng && (() => {
+              const TOKEN  = process.env.REACT_APP_MAPBOX_TOKEN;
+              const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+7F77DD(${event.lng},${event.lat})/${event.lng},${event.lat},14,0/400x160?access_token=${TOKEN}`;
+              return (
+                <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${dm ? "rgba(255,255,255,0.1)" : "#eee"}`, marginBottom:16 }}>
+                  <img src={mapUrl} alt="event location" style={{ width:"100%", display:"block" }} />
+                </div>
+              );
+            })()}
             <div style={{ borderTop:`1px solid ${dm ? "rgba(255,255,255,0.08)" : "#eee"}`, paddingTop:12, marginBottom:16 }}>
               <p style={{ fontSize:11, color:"#bbb", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>RSVPs</p>
               <RsvpList eventId={event.id} />

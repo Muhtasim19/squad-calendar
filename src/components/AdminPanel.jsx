@@ -92,7 +92,7 @@ function RsvpList({ eventId }) {
         <div key={r.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"#f5f5f5", borderRadius:10, padding:"6px 12px", fontSize:13 }}>
           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
             <span>{r.name}</span>
-            {r.manual   && <span style={{ fontSize:10, color:"#bbb" }}>✏️</span>}
+            {r.manual   && <span style={{ fontSize:10, color:"#bbb" }}></span>}
             {r.phone    && <span style={{ fontSize:10, color:"#bbb" }}>📱</span>}
             {r.fcmToken && <span style={{ fontSize:10, color:"#bbb" }}>🔔</span>}
           </div>
