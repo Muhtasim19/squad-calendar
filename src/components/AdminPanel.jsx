@@ -89,6 +89,7 @@ function RsvpList({ eventId }) {
       {rsvps.map(r => (
         <div key={r.id} style={{ background:"#f5f5f5", borderRadius:20, padding:"4px 12px", fontSize:13, display:"flex", alignItems:"center", gap:4 }}>
           <span>{r.name}</span>
+          {r.manual   && <span style={{ fontSize:10, color:"#bbb" }}>✏️</span>}
           {r.phone    && <span style={{ fontSize:10, color:"#bbb" }}>📱</span>}
           {r.fcmToken && <span style={{ fontSize:10, color:"#bbb" }}>🔔</span>}
         </div>
@@ -122,8 +123,7 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
     try {
       await updateDoc(doc(db,"events",event.id), {
         title, date, time, location, note,
-        smsReminder:   finalSms,
-        smsContactIds: finalIds,
+        smsReminder: finalSms, smsContactIds: finalIds,
       });
       onClose();
     } catch (err) { alert("Save failed: " + err.message); }
@@ -160,7 +160,6 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>notes</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ resize:"vertical", height:64, marginBottom:14 }} />
 
-        {/* SMS toggle */}
         <div onClick={handleSmsToggle}
           style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:12, background: smsReminder ? "rgba(29,158,117,0.1)" : (dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"), border:`1.5px solid ${smsReminder ? "rgba(29,158,117,0.4)" : t.border}`, cursor:"pointer", marginBottom: smsReminder ? 10 : 16, transition:"all 0.15s" }}
         >
@@ -172,7 +171,7 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
             <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>
               {smsReminder
                 ? smsContactIds.length === 0
-                  ? "⚠️ select at least one contact — SMS will be turned off if none selected"
+                  ? "⚠️ select at least one contact"
                   : `texting ${smsContactIds.length} contact${smsContactIds.length !== 1 ? "s" : ""} at 5PM the day before`
                 : "texts selected contacts at 5PM the day before"
               }
@@ -222,19 +221,18 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
     try {
       if (noDate) {
         await updateDoc(doc(db,"board",item.id), {
-          status: "being_planned", location: location.trim(),
-          description: note.trim(), updatedAt: serverTimestamp(),
+          status:"being_planned", location:location.trim(),
+          description:note.trim(), updatedAt:serverTimestamp(),
         });
       } else {
         await addDoc(collection(db,"events"), {
-          title: title.trim(), date, time,
-          location: location.trim(), type: category,
-          note: note.trim(),
-          status: "approved", createdAt: serverTimestamp(),
+          title:title.trim(), date, time, location:location.trim(),
+          type:category, note:note.trim(),
+          status:"approved", createdAt:serverTimestamp(),
         });
         await addDoc(collection(db,"notifications"), {
-          message: `"${title}" has been planned for ${date}! 🎉`,
-          type: "approved", eventTitle: title, createdAt: serverTimestamp(),
+          message:`"${title}" has been planned for ${date}! 🎉`,
+          type:"approved", eventTitle:title, createdAt:serverTimestamp(),
         });
         await deleteDoc(doc(db,"board",item.id));
       }
@@ -295,7 +293,6 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
 
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>location (optional)</label>
         <input value={location} onChange={e=>setLocation(e.target.value)} style={{ marginBottom:12 }} />
-
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>notes</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ height:60, resize:"vertical", marginBottom:16 }} />
 
@@ -333,12 +330,17 @@ export default function AdminPanel({ darkMode = false }) {
   const [boardItems,           setBoardItems]           = useState([]);
   const [subscribers,          setSubscribers]          = useState([]);
   const [contacts,             setContacts]             = useState([]);
+  const [smsLog,               setSmsLog]               = useState([]);
   const [tab,                  setTab]                  = useState("calendar");
+  const [eventTimeFilter,      setEventTimeFilter]      = useState("upcoming");
   const [newName,              setNewName]              = useState("");
   const [newColor,             setNewColor]             = useState(PALETTE[0]);
   const [addingCat,            setAddingCat]            = useState(false);
   const [editingEvent,         setEditingEvent]         = useState(null);
   const [expandedRsvps,        setExpandedRsvps]        = useState(null);
+  const [addingRsvpTo,         setAddingRsvpTo]         = useState(null);
+  const [manualName,           setManualName]           = useState("");
+  const [manualPhone,          setManualPhone]          = useState("");
   const [addingBoard,          setAddingBoard]          = useState(false);
   const [boardType,            setBoardType]            = useState("announcement");
   const [boardTitle,           setBoardTitle]           = useState("");
@@ -364,7 +366,8 @@ export default function AdminPanel({ darkMode = false }) {
     const u4 = onSnapshot(query(collection(db,"board"), orderBy("createdAt","desc")), s => setBoardItems(s.docs.map(d=>({id:d.id,...d.data()}))));
     const u5 = onSnapshot(collection(db,"fcmTokens"), s => setSubscribers(s.docs.map(d=>({id:d.id,...d.data()}))));
     const u6 = onSnapshot(collection(db,"contacts"),  s => setContacts(s.docs.map(d=>({id:d.id,...d.data()}))));
-    return () => { u1(); u2(); u3(); u4(); u5(); u6(); };
+    const u7 = onSnapshot(query(collection(db,"smsLog"), orderBy("sentAt","desc")), s => setSmsLog(s.docs.map(d=>({id:d.id,...d.data()}))));
+    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); };
   }, []);
 
   async function approve(id) {
@@ -385,6 +388,18 @@ export default function AdminPanel({ darkMode = false }) {
   const deleteSubscriber = id => deleteDoc(doc(db,"fcmTokens",id));
   const deleteContact    = id => deleteDoc(doc(db,"contacts",id));
 
+  async function addManualRsvp(eventId) {
+    if (!manualName.trim()) return alert("Name is required!");
+    await addDoc(collection(db,"events",eventId,"rsvps"), {
+      name:      manualName.trim(),
+      phone:     manualPhone.trim() || null,
+      fcmToken:  null,
+      manual:    true,
+      timestamp: serverTimestamp(),
+    });
+    setManualName(""); setManualPhone(""); setAddingRsvpTo(null);
+  }
+
   async function addCat() {
     if (!newName.trim()) return;
     await addDoc(collection(db,"categories"), { name:newName.trim().toLowerCase(), color:newColor });
@@ -403,10 +418,8 @@ export default function AdminPanel({ darkMode = false }) {
   async function addContact() {
     if (!contactPhone.trim()) return alert("Phone number is required!");
     await addDoc(collection(db,"contacts"), {
-      firstName: contactFirstName.trim(),
-      lastName:  contactLastName.trim(),
-      phone:     contactPhone.trim(),
-      createdAt: serverTimestamp(),
+      firstName:contactFirstName.trim(), lastName:contactLastName.trim(),
+      phone:contactPhone.trim(), createdAt:serverTimestamp(),
     });
     setContactFirstName(""); setContactLastName(""); setContactPhone(""); setAddingContact(false);
   }
@@ -421,9 +434,7 @@ export default function AdminPanel({ darkMode = false }) {
   async function saveEditContact() {
     if (!editPhone.trim()) return alert("Phone number is required!");
     await updateDoc(doc(db,"contacts",editingContactId), {
-      firstName: editFirstName.trim(),
-      lastName:  editLastName.trim(),
-      phone:     editPhone.trim(),
+      firstName:editFirstName.trim(), lastName:editLastName.trim(), phone:editPhone.trim(),
     });
     setEditingContactId(null);
   }
@@ -434,15 +445,11 @@ export default function AdminPanel({ darkMode = false }) {
     setSendingMsg(true);
     try {
       const sendFn = httpsCallable(functions, "sendCustomSms");
-      const result = await sendFn({ message: customMsg.trim(), contactIds: announcementContacts });
+      const result = await sendFn({ message:customMsg.trim(), contactIds:announcementContacts });
       alert(`✅ Sent to ${result.data.sent} of ${result.data.total} contacts!`);
-      setCustomMsg("");
-      setAnnouncementContacts([]);
-    } catch (err) {
-      alert("Failed to send: " + err.message);
-    } finally {
-      setSendingMsg(false);
-    }
+      setCustomMsg(""); setAnnouncementContacts([]);
+    } catch (err) { alert("Failed to send: " + err.message); }
+    finally { setSendingMsg(false); }
   }
 
   function getCatColor(type) {
@@ -450,7 +457,15 @@ export default function AdminPanel({ darkMode = false }) {
     return cat ? cat.color : (DEFAULT_COLORS[type] || { bg:"#eee", color:"#555" });
   }
 
-  const events = tab === "pending" ? pending : approved;
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const displayEvents = tab === "pending"
+    ? pending
+    : approved.filter(ev => {
+        if (eventTimeFilter === "upcoming") return !ev.date || ev.date >= todayStr;
+        if (eventTimeFilter === "past")     return ev.date < todayStr;
+        return true;
+      });
 
   const TABS = [
     { key:"calendar",    label:"📅 calendar" },
@@ -467,6 +482,7 @@ export default function AdminPanel({ darkMode = false }) {
 
       {tab === "calendar" && <AdminCalendar darkMode={dm} />}
 
+      {/* Tabs */}
       <div style={{ display:"flex", gap:6, marginBottom:"1.5rem", overflowX:"auto", paddingBottom:4, scrollbarWidth:"none", msOverflowStyle:"none" }}>
         {TABS.map(t_ => (
           <button key={t_.key} onClick={() => setTab(t_.key)} style={{
@@ -483,22 +499,46 @@ export default function AdminPanel({ darkMode = false }) {
       {/* ── Events ── */}
       {(tab === "pending" || tab === "approved") && (
         <>
-          {events.length === 0 && (
-            <div style={{ textAlign:"center", padding:"3rem 0", color:t.emptyColor, fontSize:14 }}>
-              {tab === "pending" ? "No plans waiting for approval 🎉" : "No approved plans yet"}
+          {/* Past/upcoming filter — approved only */}
+          {tab === "approved" && (
+            <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
+              {[
+                { key:"upcoming", label:"📅 upcoming" },
+                { key:"past",     label:"🕐 past"     },
+                { key:"all",      label:"📋 all"      },
+              ].map(f => (
+                <button key={f.key} onClick={() => setEventTimeFilter(f.key)} style={{
+                  padding:"5px 14px", borderRadius:20, fontSize:12, cursor:"pointer",
+                  background: eventTimeFilter===f.key ? "#7F77DD" : t.tabBg,
+                  color:      eventTimeFilter===f.key ? "#fff" : t.textSec,
+                  border:     eventTimeFilter===f.key ? "none" : `1px solid ${t.tabBorder}`,
+                  fontWeight: eventTimeFilter===f.key ? 700 : 400,
+                }}>{f.label}</button>
+              ))}
             </div>
           )}
+
+          {displayEvents.length === 0 && (
+            <div style={{ textAlign:"center", padding:"3rem 0", color:t.emptyColor, fontSize:14 }}>
+              {tab === "pending" ? "No plans waiting for approval 🎉" : `No ${eventTimeFilter} events`}
+            </div>
+          )}
+
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {events.map(ev => {
+            {displayEvents.map(ev => {
               const c = getCatColor(ev.type), isExpanded = expandedRsvps === ev.id;
+              const isPast = ev.date && ev.date < todayStr;
               return (
-                <div key={ev.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"1rem 1.25rem", backdropFilter:"blur(8px)" }}>
+                <div key={ev.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"1rem 1.25rem", backdropFilter:"blur(8px)", opacity: isPast && tab==="approved" ? 0.8 : 1 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
                     <div style={{ flex:1 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
                         <span style={{ background:c.bg, color:c.color, fontSize:11, padding:"2px 10px", borderRadius:20, fontWeight:700 }}>{ev.type}</span>
                         <span style={{ fontWeight:700, fontSize:15, color:t.text }}>{ev.title}</span>
                         <RsvpCount eventId={ev.id} />
+                        {isPast && tab==="approved" && (
+                          <span style={{ fontSize:11, color:t.textMuted, background: dm?"rgba(255,255,255,0.06)":"#f5f5f5", padding:"2px 8px", borderRadius:10 }}>✓ done</span>
+                        )}
                         {ev.smsReminder && (
                           <span style={{ fontSize:11, background:"rgba(29,158,117,0.1)", color:"#1D9E75", padding:"2px 8px", borderRadius:10, fontWeight:600 }}>
                             📱 SMS to {ev.smsContactIds?.length || 0}
@@ -519,8 +559,12 @@ export default function AdminPanel({ darkMode = false }) {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => setEditingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${dm ? "rgba(127,119,221,0.5)" : "#7F77DD"}`, color:"#7F77DD", fontSize:13, cursor:"pointer" }}>✏️ edit</button>
-                          <button onClick={() => setExpandedRsvps(isExpanded ? null : ev.id)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textSec, fontSize:13, cursor:"pointer" }}>
+                          <button onClick={() => setEditingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${dm?"rgba(127,119,221,0.5)":"#7F77DD"}`, color:"#7F77DD", fontSize:13, cursor:"pointer" }}>✏️ edit</button>
+                          <button onClick={() => {
+                            setExpandedRsvps(isExpanded ? null : ev.id);
+                            setAddingRsvpTo(null);
+                            setManualName(""); setManualPhone("");
+                          }} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textSec, fontSize:13, cursor:"pointer" }}>
                             {isExpanded ? "hide RSVPs" : "see RSVPs"}
                           </button>
                           <button onClick={() => remove(ev.id)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textMuted, fontSize:13, cursor:"pointer" }}>remove</button>
@@ -528,9 +572,34 @@ export default function AdminPanel({ darkMode = false }) {
                       )}
                     </div>
                   </div>
+
+                  {/* RSVP expanded section */}
                   {isExpanded && (
                     <div style={{ borderTop:`1px solid ${t.border}`, marginTop:12, paddingTop:12 }}>
                       <RsvpList eventId={ev.id} />
+
+                      {/* Manual RSVP */}
+                      <div style={{ marginTop:10 }}>
+                        {addingRsvpTo === ev.id ? (
+                          <div style={{ background: dm?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.02)", borderRadius:10, padding:"10px 12px", border:`1px solid ${t.border}` }}>
+                            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+                              <input value={manualName} onChange={e=>setManualName(e.target.value)} placeholder="name *" />
+                              <input type="tel" value={manualPhone} onChange={e=>setManualPhone(e.target.value)} placeholder="phone (optional)" />
+                            </div>
+                            <div style={{ display:"flex", gap:8 }}>
+                              <button onClick={() => { setAddingRsvpTo(null); setManualName(""); setManualPhone(""); }}
+                                style={{ flex:1, padding:"6px", borderRadius:8, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:12, color:t.text }}>cancel</button>
+                              <button onClick={() => addManualRsvp(ev.id)}
+                                style={{ flex:2, padding:"6px", borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:12 }}>➕ add to RSVP</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setAddingRsvpTo(ev.id); setManualName(""); setManualPhone(""); }}
+                            style={{ fontSize:12, padding:"5px 12px", borderRadius:20, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", color:t.textSec, marginTop:6 }}>
+                            ➕ add manually
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -551,16 +620,16 @@ export default function AdminPanel({ darkMode = false }) {
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10 }}>
                   <div style={{ flex:1 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, flexWrap:"wrap" }}>
-                      <span style={{ fontSize:16 }}>{item.type==="announcement" ? "📌" : item.status==="being_planned" ? "🔄" : "💡"}</span>
+                      <span style={{ fontSize:16 }}>{item.type==="announcement"?"📌":item.status==="being_planned"?"🔄":"💡"}</span>
                       <span style={{ fontWeight:600, fontSize:14, color:t.text }}>{item.title}</span>
-                      <span style={{ fontSize:11, color:t.textMuted, background: dm ? "rgba(255,255,255,0.08)" : "#f5f5f5", borderRadius:10, padding:"1px 8px" }}>{item.type}</span>
-                      {item.status === "being_planned" && <span style={{ fontSize:11, background:"rgba(127,119,221,0.12)", color:"#7F77DD", borderRadius:10, padding:"1px 8px", fontWeight:600 }}>🔄 being planned</span>}
+                      <span style={{ fontSize:11, color:t.textMuted, background:dm?"rgba(255,255,255,0.08)":"#f5f5f5", borderRadius:10, padding:"1px 8px" }}>{item.type}</span>
+                      {item.status==="being_planned" && <span style={{ fontSize:11, background:"rgba(127,119,221,0.12)", color:"#7F77DD", borderRadius:10, padding:"1px 8px", fontWeight:600 }}>🔄 being planned</span>}
                     </div>
                     {item.description && <p style={{ fontSize:12, color:t.textSec, margin:"0 0 2px" }}>{item.description}</p>}
                     {item.location    && <p style={{ fontSize:12, color:t.textSec, margin:"0 0 2px" }}>📍 {item.location}</p>}
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
-                    {item.type === "idea" && (
+                    {item.type==="idea" && (
                       <button onClick={() => setPlanningItem(item)} style={{ padding:"5px 12px", borderRadius:8, background:"rgba(29,158,117,0.1)", border:"1px solid rgba(29,158,117,0.3)", color:"#1D9E75", fontSize:12, cursor:"pointer", fontWeight:600 }}>📅 plan it</button>
                     )}
                     <button onClick={() => deleteBoardItem(item.id)} style={{ padding:"5px 12px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer" }}>delete</button>
@@ -575,16 +644,16 @@ export default function AdminPanel({ darkMode = false }) {
             <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(127,119,221,0.2)" }}>
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {["announcement","idea"].map(tp => (
-                  <button key={tp} onClick={() => setBoardType(tp)} style={{ flex:1, padding:"7px", borderRadius:10, fontSize:12, cursor:"pointer", background: boardType===tp ? "#7F77DD" : "none", color: boardType===tp ? "#fff" : t.textSec, border: boardType===tp ? "none" : `1px solid ${t.border}`, fontWeight: boardType===tp ? 700 : 400 }}>
-                    {tp === "announcement" ? "📌 announcement" : "💡 idea"}
+                  <button key={tp} onClick={() => setBoardType(tp)} style={{ flex:1, padding:"7px", borderRadius:10, fontSize:12, cursor:"pointer", background:boardType===tp?"#7F77DD":"none", color:boardType===tp?"#fff":t.textSec, border:boardType===tp?"none":`1px solid ${t.border}`, fontWeight:boardType===tp?700:400 }}>
+                    {tp==="announcement"?"📌 announcement":"💡 idea"}
                   </button>
                 ))}
               </div>
               <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>title</label>
-              <input value={boardTitle} onChange={e=>setBoardTitle(e.target.value)} placeholder={boardType==="announcement" ? "e.g. Summer rules 🌞" : "e.g. Camping trip?"} style={{ marginBottom:12 }} />
+              <input value={boardTitle} onChange={e=>setBoardTitle(e.target.value)} placeholder={boardType==="announcement"?"e.g. Summer rules 🌞":"e.g. Camping trip?"} style={{ marginBottom:12 }} />
               <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>description (optional)</label>
               <textarea value={boardDesc} onChange={e=>setBoardDesc(e.target.value)} placeholder="more details…" style={{ resize:"vertical", height:60, marginBottom:12 }} />
-              {boardType === "idea" && (
+              {boardType==="idea" && (
                 <>
                   <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>suggested by</label>
                   <input value={boardWho} onChange={e=>setBoardWho(e.target.value)} placeholder="Jake, the squad…" style={{ marginBottom:12 }} />
@@ -606,30 +675,24 @@ export default function AdminPanel({ darkMode = false }) {
             Squad members who receive SMS reminders and announcements.
           </p>
 
+          {/* Announcement */}
           <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(29,158,117,0.25)", marginBottom:20 }}>
             <label style={{ fontSize:13, fontWeight:700, color:"#1D9E75", display:"block", marginBottom:8 }}>📢 send announcement</label>
-            <textarea
-              value={customMsg}
-              onChange={e => setCustomMsg(e.target.value)}
-              placeholder={`Type your message…\n(squadcal.app link added automatically)`}
-              style={{ height:80, resize:"vertical", marginBottom:12 }}
-            />
+            <textarea value={customMsg} onChange={e=>setCustomMsg(e.target.value)} placeholder={`Type your message…\n(squadcal.app link added automatically)`} style={{ height:80, resize:"vertical", marginBottom:12 }} />
             <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>send to</p>
             <ContactChecklist contacts={contacts} selectedIds={announcementContacts} onChange={setAnnouncementContacts} dm={dm} t={t} />
-            <button
-              onClick={handleSendCustomMsg}
-              disabled={sendingMsg || !customMsg.trim() || announcementContacts.length === 0}
-              style={{ width:"100%", padding:10, borderRadius:10, background:"#1D9E75", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:(sendingMsg || !customMsg.trim() || announcementContacts.length === 0) ? 0.6 : 1, marginTop:12 }}
-            >
-              {sendingMsg ? "sending…" : `📱 send to ${announcementContacts.length} contact${announcementContacts.length !== 1 ? "s" : ""}`}
+            <button onClick={handleSendCustomMsg} disabled={sendingMsg||!customMsg.trim()||announcementContacts.length===0}
+              style={{ width:"100%", padding:10, borderRadius:10, background:"#1D9E75", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:(sendingMsg||!customMsg.trim()||announcementContacts.length===0)?0.6:1, marginTop:12 }}>
+              {sendingMsg?"sending…":`📱 send to ${announcementContacts.length} contact${announcementContacts.length!==1?"s":""}`}
             </button>
           </div>
 
+          {/* Contacts list */}
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-            {contacts.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No contacts yet — add your squad members below</p>}
+            {contacts.length===0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No contacts yet — add your squad members below</p>}
             {contacts.map(contact => (
               <div key={contact.id} style={{ background:t.cardBg, borderRadius:12, padding:"10px 14px", border:`1px solid ${t.cardBorder}` }}>
-                {editingContactId === contact.id ? (
+                {editingContactId===contact.id ? (
                   <div>
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
                       <input value={editFirstName} onChange={e=>setEditFirstName(e.target.value)} placeholder="First name" />
@@ -648,7 +711,7 @@ export default function AdminPanel({ darkMode = false }) {
                       <p style={{ fontSize:12, color:t.textMuted, margin:0 }}>{contact.phone}</p>
                     </div>
                     <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                      <button onClick={() => startEditContact(contact)} style={{ padding:"4px 10px", borderRadius:8, background:"none", border:`1px solid ${dm ? "rgba(127,119,221,0.4)" : "#7F77DD"}`, color:"#7F77DD", fontSize:12, cursor:"pointer" }}>✏️</button>
+                      <button onClick={() => startEditContact(contact)} style={{ padding:"4px 10px", borderRadius:8, background:"none", border:`1px solid ${dm?"rgba(127,119,221,0.4)":"#7F77DD"}`, color:"#7F77DD", fontSize:12, cursor:"pointer" }}>✏️</button>
                       <button onClick={() => deleteContact(contact.id)} style={{ padding:"4px 10px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer" }}>remove</button>
                     </div>
                   </div>
@@ -657,10 +720,9 @@ export default function AdminPanel({ darkMode = false }) {
             ))}
           </div>
 
+          {/* Add contact */}
           {!addingContact ? (
-            <button onClick={() => setAddingContact(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>
-              + add contact
-            </button>
+            <button onClick={() => setAddingContact(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ add contact</button>
           ) : (
             <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(127,119,221,0.2)" }}>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
@@ -681,6 +743,30 @@ export default function AdminPanel({ darkMode = false }) {
               </div>
             </div>
           )}
+
+          {/* ── SMS Log ── */}
+          {smsLog.length > 0 && (
+            <div style={{ marginTop:28 }}>
+              <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:12 }}>📜 SMS history</p>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {smsLog.map(log => (
+                  <div key={log.id} style={{ background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}` }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                      <p style={{ fontSize:13, color:t.text, margin:0, flex:1, lineHeight:1.4 }}>"{log.message}"</p>
+                      <span style={{ fontSize:11, background: log.sent===log.total ? "rgba(29,158,117,0.1)" : "rgba(239,159,39,0.1)", color: log.sent===log.total ? "#1D9E75" : "#EF9F27", padding:"2px 8px", borderRadius:10, fontWeight:600, flexShrink:0, whiteSpace:"nowrap" }}>
+                        {log.sent}/{log.total} sent
+                      </span>
+                    </div>
+                    {log.sentAt && (
+                      <p style={{ fontSize:11, color:t.textMuted, margin:"4px 0 0" }}>
+                        {log.sentAt.toDate?.().toLocaleString() || ""}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -688,16 +774,16 @@ export default function AdminPanel({ darkMode = false }) {
       {tab === "subscribers" && (
         <div>
           <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>
-            {subscribers.length} device{subscribers.length !== 1 ? "s" : ""} subscribed to push notifications
+            {subscribers.length} device{subscribers.length!==1?"s":""} subscribed to push notifications
           </p>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {subscribers.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No push subscribers yet</p>}
-            {subscribers.map((sub, i) => (
+            {subscribers.length===0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No push subscribers yet</p>}
+            {subscribers.map((sub,i) => (
               <div key={sub.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}`, gap:10 }}>
                 <div>
-                  <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>Device {i + 1} 🔔</p>
-                  <p style={{ fontSize:11, color:t.textMuted, margin:0, fontFamily:"monospace" }}>{sub.token ? sub.token.substring(0,30) + "…" : "unknown"}</p>
-                  {sub.createdAt && <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>added {sub.createdAt.toDate?.().toLocaleDateString() || ""}</p>}
+                  <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>Device {i+1} 🔔</p>
+                  <p style={{ fontSize:11, color:t.textMuted, margin:0, fontFamily:"monospace" }}>{sub.token?sub.token.substring(0,30)+"…":"unknown"}</p>
+                  {sub.createdAt && <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>added {sub.createdAt.toDate?.().toLocaleDateString()||""}</p>}
                 </div>
                 <button onClick={() => deleteSubscriber(sub.id)} style={{ padding:"4px 12px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer", flexShrink:0 }}>remove</button>
               </div>
@@ -711,7 +797,7 @@ export default function AdminPanel({ darkMode = false }) {
         <div>
           <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Default categories (hangout, trip, sports) are built-in.</p>
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-            {categories.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No custom categories yet</p>}
+            {categories.length===0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No custom categories yet</p>}
             {categories.map(cat => (
               <div key={cat.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}` }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -731,7 +817,7 @@ export default function AdminPanel({ darkMode = false }) {
               <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:8 }}>pick a color</label>
               <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
                 {PALETTE.map(p => (
-                  <button key={p.label} onClick={() => setNewColor(p)} style={{ width:28, height:28, borderRadius:"50%", background:p.bg, border: newColor.label===p.label ? `3px solid ${p.color}` : "2px solid transparent", cursor:"pointer", transform: newColor.label===p.label ? "scale(1.2)" : "scale(1)", transition:"transform 0.15s" }} title={p.label} />
+                  <button key={p.label} onClick={() => setNewColor(p)} style={{ width:28, height:28, borderRadius:"50%", background:p.bg, border:newColor.label===p.label?`3px solid ${p.color}`:"2px solid transparent", cursor:"pointer", transform:newColor.label===p.label?"scale(1.2)":"scale(1)", transition:"transform 0.15s" }} title={p.label} />
                 ))}
               </div>
               <div style={{ display:"flex", gap:8 }}>
@@ -743,6 +829,7 @@ export default function AdminPanel({ darkMode = false }) {
         </div>
       )}
 
+      {/* Modals */}
       {editingEvent && (
         <EditEventModal event={editingEvent} contacts={contacts} onClose={() => setEditingEvent(null)} dm={dm} t={t} />
       )}

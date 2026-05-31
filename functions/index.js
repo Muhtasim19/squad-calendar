@@ -175,7 +175,7 @@ exports.sendSmsReminders = onSchedule({
 // ── 4. Custom announcement SMS — selected contacts only ──
 exports.sendCustomSms = onCall(async (request) => {
   const { message, contactIds } = request.data;
-  if (!message)                          throw new Error("Message required");
+  if (!message) throw new Error("Message required");
   if (!contactIds || contactIds.length === 0) return { sent: 0, total: 0 };
 
   const phones = await getPhonesForContacts(contactIds);
@@ -195,6 +195,16 @@ exports.sendCustomSms = onCall(async (request) => {
       }
     } catch (err) { console.error(`Custom SMS error → ${phone}:`, err); }
   }
+
+  // ── Save to SMS log ──
+  try {
+    await db.collection("smsLog").add({
+      message,
+      sent,
+      total: phones.length,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) { console.error("Failed to save SMS log:", err); }
 
   return { sent, total: phones.length };
 });
