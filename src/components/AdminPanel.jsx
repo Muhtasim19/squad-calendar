@@ -84,16 +84,14 @@ function RsvpList({ eventId }) {
     );
     return () => unsub();
   }, [eventId]);
-
   if (rsvps.length === 0) return <p style={{ fontSize:13, color:"#bbb", margin:0 }}>No RSVPs yet</p>;
-
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
       {rsvps.map(r => (
         <div key={r.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"#f5f5f5", borderRadius:10, padding:"6px 12px", fontSize:13 }}>
           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
             <span>{r.name}</span>
-            {r.manual   && <span style={{ fontSize:10, color:"#bbb" }}></span>}
+            {r.manual   && <span style={{ fontSize:10, color:"#bbb" }}>✏️</span>}
             {r.phone    && <span style={{ fontSize:10, color:"#bbb" }}>📱</span>}
             {r.fcmToken && <span style={{ fontSize:10, color:"#bbb" }}>🔔</span>}
           </div>
@@ -113,11 +111,7 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
   const [title,         setTitle]         = useState(event.title       || "");
   const [date,          setDate]          = useState(event.date        || "");
   const [time,          setTime]          = useState(event.time        || "");
-  const [locationObj, setLocationObj] = useState({
-    name: event.location || "",
-    lat:  event.lat      || null,
-    lng:  event.lng      || null,
-  });
+  const [locationObj,   setLocationObj]   = useState({ name: event.location || "", lat: event.lat || null, lng: event.lng || null });
   const [note,          setNote]          = useState(event.note        || "");
   const [smsReminder,   setSmsReminder]   = useState(event.smsReminder || false);
   const [smsContactIds, setSmsContactIds] = useState(event.smsContactIds || []);
@@ -132,7 +126,6 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
   async function handleSave() {
     if (!title || !date) return alert("Title and date are required!");
     const finalSms = smsReminder && smsContactIds.length > 0;
-    const finalIds = finalSms ? smsContactIds : [];
     setSaving(true);
     try {
       await updateDoc(doc(db,"events",event.id), {
@@ -140,7 +133,9 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
         location: locationObj.name,
         lat:      locationObj.lat,
         lng:      locationObj.lng,
-        note, smsReminder, smsContactIds,
+        note,
+        smsReminder:   finalSms,
+        smsContactIds: finalSms ? smsContactIds : [],
       });
       onClose();
     } catch (err) { alert("Save failed: " + err.message); }
@@ -189,9 +184,7 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
             <p style={{ fontSize:13, fontWeight:600, color: smsReminder ? "#1D9E75" : t.text, margin:0 }}>📱 SMS reminder for this event</p>
             <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>
               {smsReminder
-                ? smsContactIds.length === 0
-                  ? "⚠️ select at least one contact"
-                  : `texting ${smsContactIds.length} contact${smsContactIds.length !== 1 ? "s" : ""} at 5PM the day before`
+                ? smsContactIds.length === 0 ? "⚠️ select at least one contact" : `texting ${smsContactIds.length} contact${smsContactIds.length !== 1 ? "s" : ""} at 5PM the day before`
                 : "texts selected contacts at 5PM the day before"
               }
             </p>
@@ -326,6 +319,75 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
   );
 }
 
+// ── Approve modal with SMS toggle ──
+function ApproveModal({ event, contacts, onClose, onApprove, dm, t }) {
+  const [smsReminder,   setSmsReminder]   = useState(false);
+  const [smsContactIds, setSmsContactIds] = useState([]);
+  const [approving,     setApproving]     = useState(false);
+
+  async function handleApprove() {
+    setApproving(true);
+    try {
+      const finalSms = smsReminder && smsContactIds.length > 0;
+      await onApprove(event.id, {
+        smsReminder:   finalSms,
+        smsContactIds: finalSms ? smsContactIds : [],
+      });
+    } finally { setApproving(false); }
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:350 }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:400, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.2)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <h2 style={{ fontSize:17, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>✓ approve event</h2>
+          <button onClick={onClose} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#bbb" }}>✕</button>
+        </div>
+
+        <div style={{ background: dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", borderRadius:12, padding:"12px 14px", marginBottom:16 }}>
+          <p style={{ fontWeight:700, fontSize:15, color:t.text, margin:"0 0 4px" }}>{event.title}</p>
+          <p style={{ fontSize:13, color:t.textSec, margin:0 }}>📅 {event.date}{event.time ? ` at ${event.time}` : ""}</p>
+          {event.location && <p style={{ fontSize:13, color:t.textSec, margin:"2px 0 0" }}>📍 {event.location}</p>}
+        </div>
+
+        <div onClick={() => { setSmsReminder(!smsReminder); if (smsReminder) setSmsContactIds([]); }}
+          style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:12, background: smsReminder ? "rgba(29,158,117,0.1)" : (dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"), border:`1.5px solid ${smsReminder ? "rgba(29,158,117,0.4)" : t.border}`, cursor:"pointer", marginBottom: smsReminder ? 10 : 20, transition:"all 0.15s" }}
+        >
+          <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${smsReminder ? "#1D9E75" : t.border}`, background: smsReminder ? "#1D9E75" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
+            {smsReminder && <span style={{ color:"#fff", fontSize:12, fontWeight:700 }}>✓</span>}
+          </div>
+          <div>
+            <p style={{ fontSize:13, fontWeight:600, color: smsReminder ? "#1D9E75" : t.text, margin:0 }}>📱 send SMS reminder</p>
+            <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>
+              {smsReminder
+                ? smsContactIds.length === 0 ? "⚠️ select at least one contact" : `texting ${smsContactIds.length} contact${smsContactIds.length !== 1 ? "s" : ""} at 5PM the day before`
+                : "texts selected contacts at 5PM the day before"
+              }
+            </p>
+          </div>
+        </div>
+
+        {smsReminder && (
+          <div style={{ marginBottom:16, padding:"12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)", border:`1px solid ${t.border}` }}>
+            <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", margin:"0 0 10px" }}>send to</p>
+            <ContactChecklist contacts={contacts} selectedIds={smsContactIds} onChange={setSmsContactIds} dm={dm} t={t} />
+          </div>
+        )}
+
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={onClose} style={{ flex:1, padding:10, borderRadius:10, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:13, color:t.text }}>cancel</button>
+          <button onClick={handleApprove} disabled={approving}
+            style={{ flex:2, padding:10, borderRadius:10, background:"#1D9E75", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:approving?0.7:1 }}>
+            {approving ? "approving…" : "✓ approve"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main AdminPanel ──
 export default function AdminPanel({ darkMode = false }) {
   const dm = darkMode;
@@ -356,6 +418,7 @@ export default function AdminPanel({ darkMode = false }) {
   const [newColor,             setNewColor]             = useState(PALETTE[0]);
   const [addingCat,            setAddingCat]            = useState(false);
   const [editingEvent,         setEditingEvent]         = useState(null);
+  const [approvingEvent,       setApprovingEvent]       = useState(null); // ← NEW
   const [expandedRsvps,        setExpandedRsvps]        = useState(null);
   const [addingRsvpTo,         setAddingRsvpTo]         = useState(null);
   const [manualName,           setManualName]           = useState("");
@@ -389,9 +452,14 @@ export default function AdminPanel({ darkMode = false }) {
     return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); };
   }, []);
 
-  async function approve(id) {
+  // ← UPDATED: accepts smsSettings
+  async function approve(id, smsSettings = {}) {
     const ev = pending.find(e => e.id === id);
-    await updateDoc(doc(db,"events",id), { status:"approved" });
+    await updateDoc(doc(db,"events",id), {
+      status:        "approved",
+      smsReminder:   smsSettings.smsReminder   || false,
+      smsContactIds: smsSettings.smsContactIds || [],
+    });
     if (ev) {
       await addDoc(collection(db,"notifications"), {
         message:`"${ev.title}" has been approved! 🎉`, type:"approved",
@@ -410,11 +478,8 @@ export default function AdminPanel({ darkMode = false }) {
   async function addManualRsvp(eventId) {
     if (!manualName.trim()) return alert("Name is required!");
     await addDoc(collection(db,"events",eventId,"rsvps"), {
-      name:      manualName.trim(),
-      phone:     manualPhone.trim() || null,
-      fcmToken:  null,
-      manual:    true,
-      timestamp: serverTimestamp(),
+      name:manualName.trim(), phone:manualPhone.trim()||null,
+      fcmToken:null, manual:true, timestamp:serverTimestamp(),
     });
     setManualName(""); setManualPhone(""); setAddingRsvpTo(null);
   }
@@ -501,7 +566,6 @@ export default function AdminPanel({ darkMode = false }) {
 
       {tab === "calendar" && <AdminCalendar darkMode={dm} />}
 
-      {/* Tabs */}
       <div style={{ display:"flex", gap:6, marginBottom:"1.5rem", overflowX:"auto", paddingBottom:4, scrollbarWidth:"none", msOverflowStyle:"none" }}>
         {TABS.map(t_ => (
           <button key={t_.key} onClick={() => setTab(t_.key)} style={{
@@ -518,7 +582,6 @@ export default function AdminPanel({ darkMode = false }) {
       {/* ── Events ── */}
       {(tab === "pending" || tab === "approved") && (
         <>
-          {/* Past/upcoming filter — approved only */}
           {tab === "approved" && (
             <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
               {[
@@ -556,7 +619,7 @@ export default function AdminPanel({ darkMode = false }) {
                         <span style={{ fontWeight:700, fontSize:15, color:t.text }}>{ev.title}</span>
                         <RsvpCount eventId={ev.id} />
                         {isPast && tab==="approved" && (
-                          <span style={{ fontSize:11, color:t.textMuted, background: dm?"rgba(255,255,255,0.06)":"#f5f5f5", padding:"2px 8px", borderRadius:10 }}>✓ done</span>
+                          <span style={{ fontSize:11, color:t.textMuted, background:dm?"rgba(255,255,255,0.06)":"#f5f5f5", padding:"2px 8px", borderRadius:10 }}>✓ done</span>
                         )}
                         {ev.smsReminder && (
                           <span style={{ fontSize:11, background:"rgba(29,158,117,0.1)", color:"#1D9E75", padding:"2px 8px", borderRadius:10, fontWeight:600 }}>
@@ -573,16 +636,16 @@ export default function AdminPanel({ darkMode = false }) {
                     <div style={{ display:"flex", gap:6, flexShrink:0, flexWrap:"wrap", justifyContent:"flex-end" }}>
                       {tab === "pending" ? (
                         <>
-                          <button onClick={() => approve(ev.id)} style={{ padding:"6px 14px", borderRadius:8, background:"#1D9E75", color:"#fff", border:"none", fontSize:13, fontWeight:600, cursor:"pointer" }}>✓ approve</button>
-                          <button onClick={() => reject(ev.id)}  style={{ padding:"6px 14px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:13, cursor:"pointer" }}>✕ reject</button>
+                          {/* ← UPDATED: opens ApproveModal */}
+                          <button onClick={() => setApprovingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"#1D9E75", color:"#fff", border:"none", fontSize:13, fontWeight:600, cursor:"pointer" }}>✓ approve</button>
+                          <button onClick={() => reject(ev.id)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:13, cursor:"pointer" }}>✕ reject</button>
                         </>
                       ) : (
                         <>
                           <button onClick={() => setEditingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${dm?"rgba(127,119,221,0.5)":"#7F77DD"}`, color:"#7F77DD", fontSize:13, cursor:"pointer" }}>✏️ edit</button>
                           <button onClick={() => {
                             setExpandedRsvps(isExpanded ? null : ev.id);
-                            setAddingRsvpTo(null);
-                            setManualName(""); setManualPhone("");
+                            setAddingRsvpTo(null); setManualName(""); setManualPhone("");
                           }} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textSec, fontSize:13, cursor:"pointer" }}>
                             {isExpanded ? "hide RSVPs" : "see RSVPs"}
                           </button>
@@ -592,15 +655,12 @@ export default function AdminPanel({ darkMode = false }) {
                     </div>
                   </div>
 
-                  {/* RSVP expanded section */}
                   {isExpanded && (
                     <div style={{ borderTop:`1px solid ${t.border}`, marginTop:12, paddingTop:12 }}>
                       <RsvpList eventId={ev.id} />
-
-                      {/* Manual RSVP */}
                       <div style={{ marginTop:10 }}>
                         {addingRsvpTo === ev.id ? (
-                          <div style={{ background: dm?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.02)", borderRadius:10, padding:"10px 12px", border:`1px solid ${t.border}` }}>
+                          <div style={{ background:dm?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.02)", borderRadius:10, padding:"10px 12px", border:`1px solid ${t.border}` }}>
                             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
                               <input value={manualName} onChange={e=>setManualName(e.target.value)} placeholder="name *" />
                               <input type="tel" value={manualPhone} onChange={e=>setManualPhone(e.target.value)} placeholder="phone (optional)" />
@@ -690,11 +750,8 @@ export default function AdminPanel({ darkMode = false }) {
       {/* ── Contacts ── */}
       {tab === "contacts" && (
         <div>
-          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>
-            Squad members who receive SMS reminders and announcements.
-          </p>
+          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Squad members who receive SMS reminders and announcements.</p>
 
-          {/* Announcement */}
           <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(29,158,117,0.25)", marginBottom:20 }}>
             <label style={{ fontSize:13, fontWeight:700, color:"#1D9E75", display:"block", marginBottom:8 }}>📢 send announcement</label>
             <textarea value={customMsg} onChange={e=>setCustomMsg(e.target.value)} placeholder={`Type your message…\n(squadcal.app link added automatically)`} style={{ height:80, resize:"vertical", marginBottom:12 }} />
@@ -706,7 +763,6 @@ export default function AdminPanel({ darkMode = false }) {
             </button>
           </div>
 
-          {/* Contacts list */}
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
             {contacts.length===0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No contacts yet — add your squad members below</p>}
             {contacts.map(contact => (
@@ -739,7 +795,6 @@ export default function AdminPanel({ darkMode = false }) {
             ))}
           </div>
 
-          {/* Add contact */}
           {!addingContact ? (
             <button onClick={() => setAddingContact(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ add contact</button>
           ) : (
@@ -763,7 +818,6 @@ export default function AdminPanel({ darkMode = false }) {
             </div>
           )}
 
-          {/* ── SMS Log ── */}
           {smsLog.length > 0 && (
             <div style={{ marginTop:28 }}>
               <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:12 }}>📜 SMS history</p>
@@ -772,15 +826,11 @@ export default function AdminPanel({ darkMode = false }) {
                   <div key={log.id} style={{ background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}` }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
                       <p style={{ fontSize:13, color:t.text, margin:0, flex:1, lineHeight:1.4 }}>"{log.message}"</p>
-                      <span style={{ fontSize:11, background: log.sent===log.total ? "rgba(29,158,117,0.1)" : "rgba(239,159,39,0.1)", color: log.sent===log.total ? "#1D9E75" : "#EF9F27", padding:"2px 8px", borderRadius:10, fontWeight:600, flexShrink:0, whiteSpace:"nowrap" }}>
+                      <span style={{ fontSize:11, background:log.sent===log.total?"rgba(29,158,117,0.1)":"rgba(239,159,39,0.1)", color:log.sent===log.total?"#1D9E75":"#EF9F27", padding:"2px 8px", borderRadius:10, fontWeight:600, flexShrink:0, whiteSpace:"nowrap" }}>
                         {log.sent}/{log.total} sent
                       </span>
                     </div>
-                    {log.sentAt && (
-                      <p style={{ fontSize:11, color:t.textMuted, margin:"4px 0 0" }}>
-                        {log.sentAt.toDate?.().toLocaleString() || ""}
-                      </p>
-                    )}
+                    {log.sentAt && <p style={{ fontSize:11, color:t.textMuted, margin:"4px 0 0" }}>{log.sentAt.toDate?.().toLocaleString()||""}</p>}
                   </div>
                 ))}
               </div>
@@ -792,9 +842,7 @@ export default function AdminPanel({ darkMode = false }) {
       {/* ── Subscribers ── */}
       {tab === "subscribers" && (
         <div>
-          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>
-            {subscribers.length} device{subscribers.length!==1?"s":""} subscribed to push notifications
-          </p>
+          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>{subscribers.length} device{subscribers.length!==1?"s":""} subscribed to push notifications</p>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {subscribers.length===0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No push subscribers yet</p>}
             {subscribers.map((sub,i) => (
@@ -848,12 +896,26 @@ export default function AdminPanel({ darkMode = false }) {
         </div>
       )}
 
-      {/* Modals */}
+      {/* ── Modals ── */}
       {editingEvent && (
         <EditEventModal event={editingEvent} contacts={contacts} onClose={() => setEditingEvent(null)} dm={dm} t={t} />
       )}
       {planningItem && (
         <PlanItModal item={planningItem} categories={categories} onClose={() => setPlanningItem(null)} dm={dm} t={t} />
+      )}
+      {/* ← NEW: Approve modal */}
+      {approvingEvent && (
+        <ApproveModal
+          event={approvingEvent}
+          contacts={contacts}
+          onClose={() => setApprovingEvent(null)}
+          onApprove={async (id, smsSettings) => {
+            await approve(id, smsSettings);
+            setApprovingEvent(null);
+          }}
+          dm={dm}
+          t={t}
+        />
       )}
     </div>
   );

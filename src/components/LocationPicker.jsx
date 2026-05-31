@@ -8,6 +8,9 @@ export default function LocationPicker({ value, onChange }) {
   const [showSugg,    setShowSugg]    = useState(false);
   const timer = useRef(null);
 
+  // reads dark mode from body class — works since dark toggle causes re-renders
+  const dm = document.body.classList.contains("dark");
+
   async function search(q) {
     if (q.length < 2) { setSuggestions([]); return; }
     try {
@@ -39,7 +42,7 @@ export default function LocationPicker({ value, onChange }) {
     : null;
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position:"relative" }}>
       <input
         value={query}
         onChange={handleInput}
@@ -48,22 +51,39 @@ export default function LocationPicker({ value, onChange }) {
         onBlur={() => setTimeout(() => setShowSugg(false), 150)}
         autoComplete="off"
       />
+
       {showSugg && suggestions.length > 0 && (
-        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"rgba(255,255,255,0.98)", backdropFilter:"blur(12px)", border:"1px solid #eee", borderRadius:12, boxShadow:"0 8px 24px rgba(0,0,0,0.1)", zIndex:300, overflow:"hidden" }}>
+        <div style={{
+          position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
+          background:     dm ? "rgba(24,24,36,0.98)"            : "rgba(255,255,255,0.98)",
+          backdropFilter: "blur(12px)",
+          border:         `1px solid ${dm ? "rgba(255,255,255,0.12)" : "#eee"}`,
+          borderRadius:   12,
+          boxShadow:      "0 8px 24px rgba(0,0,0,0.2)",
+          overflow:       "hidden",
+        }}>
           {suggestions.map(s => (
-            <div key={s.id} onMouseDown={() => selectPlace(s)}
-              style={{ padding:"10px 14px", cursor:"pointer", borderBottom:"1px solid #f5f5f5" }}
-              onMouseEnter={e => e.currentTarget.style.background="#f5f5f5"}
-              onMouseLeave={e => e.currentTarget.style.background="transparent"}
+            <div key={s.id}
+              onMouseDown={() => selectPlace(s)}
+              style={{
+                padding:"10px 14px", cursor:"pointer",
+                borderBottom:`1px solid ${dm ? "rgba(255,255,255,0.07)" : "#f5f5f5"}`,
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = dm ? "rgba(255,255,255,0.08)" : "#f5f5f5"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
             >
-              <div style={{ fontSize:13, fontWeight:600, color:"#333" }}>{s.text}</div>
-              <div style={{ fontSize:11, color:"#aaa", marginTop:2 }}>{s.place_name}</div>
+              <div style={{ fontSize:13, fontWeight:600, color: dm ? "#f0f0f0" : "#333" }}>{s.text}</div>
+              <div style={{ fontSize:11, color: dm ? "#777" : "#aaa", marginTop:2 }}>{s.place_name}</div>
             </div>
           ))}
         </div>
       )}
+
       {mapUrl && (
-        <div style={{ marginTop:8, borderRadius:12, overflow:"hidden", border:"1px solid #eee" }}>
+        <div style={{
+          marginTop:8, borderRadius:12, overflow:"hidden",
+          border:`1px solid ${dm ? "rgba(255,255,255,0.1)" : "#eee"}`,
+        }}>
           <img src={mapUrl} alt="location preview" style={{ width:"100%", display:"block" }} />
         </div>
       )}
