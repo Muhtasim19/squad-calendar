@@ -11,7 +11,7 @@ setGlobalOptions({ maxInstances: 10 });
 admin.initializeApp();
 const db = admin.firestore();
 
-const CALENDAR_LINK = "squadcal.app";
+const CALENDAR_LINK = "https://www.squadcal.app";
 
 // ── Helper: send SMS via Textbelt ──
 function sendSMS(phone, message) {
