@@ -83,15 +83,24 @@ function RsvpList({ eventId }) {
     );
     return () => unsub();
   }, [eventId]);
+
   if (rsvps.length === 0) return <p style={{ fontSize:13, color:"#bbb", margin:0 }}>No RSVPs yet</p>;
+
   return (
-    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
       {rsvps.map(r => (
-        <div key={r.id} style={{ background:"#f5f5f5", borderRadius:20, padding:"4px 12px", fontSize:13, display:"flex", alignItems:"center", gap:4 }}>
-          <span>{r.name}</span>
-          {r.manual   && <span style={{ fontSize:10, color:"#bbb" }}>✏️</span>}
-          {r.phone    && <span style={{ fontSize:10, color:"#bbb" }}>📱</span>}
-          {r.fcmToken && <span style={{ fontSize:10, color:"#bbb" }}>🔔</span>}
+        <div key={r.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"#f5f5f5", borderRadius:10, padding:"6px 12px", fontSize:13 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <span>{r.name}</span>
+            {r.manual   && <span style={{ fontSize:10, color:"#bbb" }}>✏️</span>}
+            {r.phone    && <span style={{ fontSize:10, color:"#bbb" }}>📱</span>}
+            {r.fcmToken && <span style={{ fontSize:10, color:"#bbb" }}>🔔</span>}
+          </div>
+          <button
+            onClick={() => deleteDoc(doc(db,"events",eventId,"rsvps",r.id))}
+            style={{ background:"none", border:"none", cursor:"pointer", color:"#F09595", fontSize:16, padding:"2px 4px", lineHeight:1 }}
+            title="remove RSVP"
+          >✕</button>
         </div>
       ))}
     </div>
