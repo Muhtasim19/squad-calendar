@@ -157,7 +157,7 @@ exports.sendSmsReminders = onSchedule({
     let msg = `📅 "${ev.title}" is tomorrow`;
     if (ev.time)     msg += ` at ${ev.time}`;
     if (ev.location) msg += `\n📍 ${ev.location}`;
-    msg += `\nSee you there! 🎉`;
+    msg += `\nSee you there! 🎉\n${CALENDAR_LINK}`;
 
     for (const phone of phones) {
       try {
@@ -181,7 +181,7 @@ exports.sendCustomSms = onCall(async (request) => {
   const phones = await getPhonesForContacts(contactIds);
   if (phones.length === 0) return { sent: 0, total: contactIds.length };
 
-  const fullMessage = message;
+  const fullMessage = `${message}\n${CALENDAR_LINK}`;
   let sent = 0;
 
   for (const phone of phones) {
