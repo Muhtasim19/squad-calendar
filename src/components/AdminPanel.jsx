@@ -23,19 +23,15 @@ const DEFAULT_COLORS = {
   sports:  { bg:"#FAC775", color:"#633806" },
 };
 
-// ── Helper: get display name from contact ──
 function getContactName(contact) {
   const first = contact.firstName || contact.name || "";
   const last  = contact.lastName  || "";
   return `${first} ${last}`.trim() || "No name";
 }
 
-// ── Contact checklist component ──
 function ContactChecklist({ contacts, selectedIds, onChange, dm, t }) {
   function toggle(id) {
-    onChange(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
+    onChange(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
   if (contacts.length === 0) return (
     <p style={{ fontSize:12, color:t.textMuted, margin:0 }}>No contacts saved yet — add them in the Contacts tab.</p>
@@ -68,7 +64,6 @@ function ContactChecklist({ contacts, selectedIds, onChange, dm, t }) {
   );
 }
 
-// ── RsvpCount ──
 function RsvpCount({ eventId }) {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -80,7 +75,6 @@ function RsvpCount({ eventId }) {
   ) : null;
 }
 
-// ── RsvpList ──
 function RsvpList({ eventId }) {
   const [rsvps, setRsvps] = useState([]);
   useEffect(() => {
@@ -109,13 +103,11 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
   const [date,          setDate]          = useState(event.date        || "");
   const [time,          setTime]          = useState(event.time        || "");
   const [location,      setLocation]      = useState(event.location    || "");
-  const [who,           setWho]           = useState(event.who         || "");
   const [note,          setNote]          = useState(event.note        || "");
   const [smsReminder,   setSmsReminder]   = useState(event.smsReminder || false);
   const [smsContactIds, setSmsContactIds] = useState(event.smsContactIds || []);
   const [saving,        setSaving]        = useState(false);
 
-  // Auto-turn off if no contacts selected
   function handleSmsToggle() {
     const next = !smsReminder;
     setSmsReminder(next);
@@ -124,15 +116,12 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
 
   async function handleSave() {
     if (!title || !date) return alert("Title and date are required!");
-
-    // Auto-turn off SMS if no contacts selected
-    const finalSms     = smsReminder && smsContactIds.length > 0;
-    const finalIds     = finalSms ? smsContactIds : [];
-
+    const finalSms = smsReminder && smsContactIds.length > 0;
+    const finalIds = finalSms ? smsContactIds : [];
     setSaving(true);
     try {
       await updateDoc(doc(db,"events",event.id), {
-        title, date, time, location, who, note,
+        title, date, time, location, note,
         smsReminder:   finalSms,
         smsContactIds: finalIds,
       });
@@ -168,9 +157,6 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>location</label>
         <input value={location} onChange={e=>setLocation(e.target.value)} style={{ marginBottom:12 }} />
 
-        <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>who's coming</label>
-        <input value={who} onChange={e=>setWho(e.target.value)} style={{ marginBottom:12 }} />
-
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>notes</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ resize:"vertical", height:64, marginBottom:14 }} />
 
@@ -194,17 +180,10 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
           </div>
         </div>
 
-        {/* Contact checklist — shown when SMS is ON */}
         {smsReminder && (
           <div style={{ marginBottom:16, padding:"12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)", border:`1px solid ${t.border}` }}>
             <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", margin:"0 0 10px" }}>send to</p>
-            <ContactChecklist
-              contacts={contacts}
-              selectedIds={smsContactIds}
-              onChange={setSmsContactIds}
-              dm={dm}
-              t={t}
-            />
+            <ContactChecklist contacts={contacts} selectedIds={smsContactIds} onChange={setSmsContactIds} dm={dm} t={t} />
           </div>
         )}
 
@@ -227,7 +206,6 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
   const [time,     setTime]     = useState("");
   const [location, setLocation] = useState(item.location    || "");
   const [category, setCategory] = useState("hangout");
-  const [who,      setWho]      = useState(item.who         || "");
   const [note,     setNote]     = useState(item.description || "");
   const [saving,   setSaving]   = useState(false);
 
@@ -251,7 +229,7 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
         await addDoc(collection(db,"events"), {
           title: title.trim(), date, time,
           location: location.trim(), type: category,
-          who: who.trim(), note: note.trim(),
+          note: note.trim(),
           status: "approved", createdAt: serverTimestamp(),
         });
         await addDoc(collection(db,"notifications"), {
@@ -317,8 +295,7 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
 
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>location (optional)</label>
         <input value={location} onChange={e=>setLocation(e.target.value)} style={{ marginBottom:12 }} />
-        <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>who's coming</label>
-        <input value={who} onChange={e=>setWho(e.target.value)} style={{ marginBottom:12 }} />
+
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>notes</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ height:60, resize:"vertical", marginBottom:16 }} />
 
@@ -368,8 +345,6 @@ export default function AdminPanel({ darkMode = false }) {
   const [boardDesc,            setBoardDesc]            = useState("");
   const [boardWho,             setBoardWho]             = useState("");
   const [planningItem,         setPlanningItem]         = useState(null);
-
-  // Contacts state
   const [addingContact,        setAddingContact]        = useState(false);
   const [contactFirstName,     setContactFirstName]     = useState("");
   const [contactLastName,      setContactLastName]      = useState("");
@@ -378,8 +353,6 @@ export default function AdminPanel({ darkMode = false }) {
   const [editFirstName,        setEditFirstName]        = useState("");
   const [editLastName,         setEditLastName]         = useState("");
   const [editPhone,            setEditPhone]            = useState("");
-
-  // Announcement state
   const [customMsg,            setCustomMsg]            = useState("");
   const [sendingMsg,           setSendingMsg]           = useState(false);
   const [announcementContacts, setAnnouncementContacts] = useState([]);
@@ -430,10 +403,10 @@ export default function AdminPanel({ darkMode = false }) {
   async function addContact() {
     if (!contactPhone.trim()) return alert("Phone number is required!");
     await addDoc(collection(db,"contacts"), {
-      firstName:  contactFirstName.trim(),
-      lastName:   contactLastName.trim(),
-      phone:      contactPhone.trim(),
-      createdAt:  serverTimestamp(),
+      firstName: contactFirstName.trim(),
+      lastName:  contactLastName.trim(),
+      phone:     contactPhone.trim(),
+      createdAt: serverTimestamp(),
     });
     setContactFirstName(""); setContactLastName(""); setContactPhone(""); setAddingContact(false);
   }
@@ -494,7 +467,6 @@ export default function AdminPanel({ darkMode = false }) {
 
       {tab === "calendar" && <AdminCalendar darkMode={dm} />}
 
-      {/* Tabs */}
       <div style={{ display:"flex", gap:6, marginBottom:"1.5rem", overflowX:"auto", paddingBottom:4, scrollbarWidth:"none", msOverflowStyle:"none" }}>
         {TABS.map(t_ => (
           <button key={t_.key} onClick={() => setTab(t_.key)} style={{
@@ -536,7 +508,6 @@ export default function AdminPanel({ darkMode = false }) {
                       <div style={{ fontSize:13, color:t.textSec, display:"flex", flexDirection:"column", gap:3 }}>
                         <span>📅 {ev.date}{ev.time ? ` at ${ev.time}` : ""}</span>
                         {ev.location && <span>📍 {ev.location}</span>}
-                        {ev.who      && <span>👥 {ev.who}</span>}
                         {ev.note     && <span>📝 {ev.note}</span>}
                       </div>
                     </div>
@@ -587,7 +558,6 @@ export default function AdminPanel({ darkMode = false }) {
                     </div>
                     {item.description && <p style={{ fontSize:12, color:t.textSec, margin:"0 0 2px" }}>{item.description}</p>}
                     {item.location    && <p style={{ fontSize:12, color:t.textSec, margin:"0 0 2px" }}>📍 {item.location}</p>}
-                    {item.who         && <p style={{ fontSize:12, color:t.textMuted, margin:0 }}>by {item.who}</p>}
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
                     {item.type === "idea" && (
@@ -636,7 +606,6 @@ export default function AdminPanel({ darkMode = false }) {
             Squad members who receive SMS reminders and announcements.
           </p>
 
-          {/* Announcement */}
           <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(29,158,117,0.25)", marginBottom:20 }}>
             <label style={{ fontSize:13, fontWeight:700, color:"#1D9E75", display:"block", marginBottom:8 }}>📢 send announcement</label>
             <textarea
@@ -645,15 +614,8 @@ export default function AdminPanel({ darkMode = false }) {
               placeholder={`Type your message…\n(squadcal.app link added automatically)`}
               style={{ height:80, resize:"vertical", marginBottom:12 }}
             />
-            {/* Recipient checklist */}
             <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>send to</p>
-            <ContactChecklist
-              contacts={contacts}
-              selectedIds={announcementContacts}
-              onChange={setAnnouncementContacts}
-              dm={dm}
-              t={t}
-            />
+            <ContactChecklist contacts={contacts} selectedIds={announcementContacts} onChange={setAnnouncementContacts} dm={dm} t={t} />
             <button
               onClick={handleSendCustomMsg}
               disabled={sendingMsg || !customMsg.trim() || announcementContacts.length === 0}
@@ -663,13 +625,11 @@ export default function AdminPanel({ darkMode = false }) {
             </button>
           </div>
 
-          {/* Contacts list */}
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
             {contacts.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No contacts yet — add your squad members below</p>}
             {contacts.map(contact => (
               <div key={contact.id} style={{ background:t.cardBg, borderRadius:12, padding:"10px 14px", border:`1px solid ${t.cardBorder}` }}>
                 {editingContactId === contact.id ? (
-                  /* Edit form */
                   <div>
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
                       <input value={editFirstName} onChange={e=>setEditFirstName(e.target.value)} placeholder="First name" />
@@ -682,7 +642,6 @@ export default function AdminPanel({ darkMode = false }) {
                     </div>
                   </div>
                 ) : (
-                  /* Contact display */
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
                     <div>
                       <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>{getContactName(contact)}</p>
@@ -698,7 +657,6 @@ export default function AdminPanel({ darkMode = false }) {
             ))}
           </div>
 
-          {/* Add contact */}
           {!addingContact ? (
             <button onClick={() => setAddingContact(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>
               + add contact
@@ -785,7 +743,6 @@ export default function AdminPanel({ darkMode = false }) {
         </div>
       )}
 
-      {/* Modals */}
       {editingEvent && (
         <EditEventModal event={editingEvent} contacts={contacts} onClose={() => setEditingEvent(null)} dm={dm} t={t} />
       )}

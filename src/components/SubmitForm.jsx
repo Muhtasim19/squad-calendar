@@ -17,7 +17,6 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
   const [location,   setLocation]   = useState({ name:"", lat:null, lng:null });
   const [type,       setType]       = useState("hangout");
   const [customType, setCustomType] = useState("");
-  const [who,        setWho]        = useState("");
   const [note,       setNote]       = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done,       setDone]       = useState(false);
@@ -31,30 +30,27 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
     setSubmitting(true);
     try {
       if (isIdea) {
-        // Save to board as idea
         await addDoc(collection(db, "board"), {
           type:        "idea",
           title:       title.trim(),
           description: note.trim(),
-          who:         who.trim(),
           pinned:      false,
           createdAt:   serverTimestamp(),
         });
       } else {
-        // Save as pending event
         await addDoc(collection(db, "events"), {
           title, date, time,
           location: location.name,
           lat:      location.lat,
           lng:      location.lng,
           type:     finalType,
-          who, note,
+          note,
           status:   "pending",
           createdAt: serverTimestamp(),
         });
         await addDoc(collection(db, "notifications"), {
-          message:   `New plan suggested: "${title}" 📋`,
-          type:      "new_plan",
+          message:    `New plan suggested: "${title}" 📋`,
+          type:       "new_plan",
           eventTitle: title,
           createdAt:  serverTimestamp(),
         });
@@ -132,9 +128,6 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
                 )}
               </>
             )}
-
-            <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>who's coming</label>
-            <input value={who} onChange={e=>setWho(e.target.value)} placeholder="Jake, Sam, Mia…" style={{ marginBottom:12 }} />
 
             <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>notes (optional)</label>
             <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="any details…" style={{ resize:"vertical", height:64, marginBottom:16 }} />

@@ -31,7 +31,6 @@ export default function EventDetail({ event, onClose }) {
   const savedRsvpIds = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
   const myRsvpId     = savedRsvpIds[event.id];
 
-  // Fetch categories internally — no prop needed
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "categories"), snap =>
       setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })))
@@ -39,7 +38,6 @@ export default function EventDetail({ event, onClose }) {
     return () => unsub();
   }, []);
 
-  // Fetch RSVPs
   useEffect(() => {
     const unsub = onSnapshot(
       collection(db, "events", event.id, "rsvps"),
@@ -48,7 +46,6 @@ export default function EventDetail({ event, onClose }) {
     return () => unsub();
   }, [event.id]);
 
-  // Pre-fill form from localStorage
   useEffect(() => {
     if (showRsvpForm) {
       setNameInput(savedName);
@@ -65,7 +62,7 @@ export default function EventDetail({ event, onClose }) {
     const formattedPhone = phone ? formatPhone(phone) : null;
     const fcmToken       = localStorage.getItem("squadcal_push") || null;
 
-    await addDoc(collection(db, "events", event.id, "rsvps"), {
+    const rsvpRef = await addDoc(collection(db, "events", event.id, "rsvps"), {
       name,
       phone:     formattedPhone,
       fcmToken,
@@ -83,7 +80,7 @@ export default function EventDetail({ event, onClose }) {
     localStorage.setItem("squadcal_name", name);
     if (formattedPhone) localStorage.setItem("squadcal_phone", formattedPhone);
     const ids = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
-    ids[event.id] = (await addDoc(collection(db, "events", event.id, "rsvps"), {})).id;
+    ids[event.id] = rsvpRef.id;
     localStorage.setItem("squadcal_rsvps", JSON.stringify(ids));
     setShowRsvpForm(false);
   }
@@ -129,7 +126,6 @@ export default function EventDetail({ event, onClose }) {
         <div style={{ display:"flex", flexDirection:"column", gap:8, fontSize:14, color:"#666", marginBottom:16 }}>
           <span>📅 {dateStr}{event.time ? ` at ${event.time}` : ""}</span>
           {event.location && <span>📍 {event.location}</span>}
-          {event.who      && <span>👥 {event.who}</span>}
           {event.note     && <span>📝 {event.note}</span>}
         </div>
 
@@ -178,9 +174,7 @@ export default function EventDetail({ event, onClose }) {
               <p style={{ fontSize:11, color:"#ccc", marginBottom:12 }}>US numbers only. We'll text you 24h before.</p>
 
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={() => setShowRsvpForm(false)} style={{ flex:1, padding:8, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}>
-                  cancel
-                </button>
+                <button onClick={() => setShowRsvpForm(false)} style={{ flex:1, padding:8, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}>cancel</button>
                 <button
                   onClick={() => {
                     const name = savedName || nameInput.trim();

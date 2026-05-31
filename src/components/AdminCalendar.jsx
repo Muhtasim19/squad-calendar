@@ -33,14 +33,13 @@ function parseTimeHours(t) {
   return h + m / 60;
 }
 
-// ── Add Event Modal — fetches its own categories ──
+// ── Add Event Modal ──
 function AddEventModal({ onClose, dm }) {
   const [title,      setTitle]      = useState("");
   const [date,       setDate]       = useState("");
   const [time,       setTime]       = useState("");
   const [location,   setLocation]   = useState("");
   const [category,   setCategory]   = useState("hangout");
-  const [who,        setWho]        = useState("");
   const [note,       setNote]       = useState("");
   const [saving,     setSaving]     = useState(false);
   const [categories, setCategories] = useState([]);
@@ -69,20 +68,15 @@ function AddEventModal({ onClose, dm }) {
     setSaving(true);
     try {
       await addDoc(collection(db, "events"), {
-        title:    title.trim(),
-        date, time,
-        location: location.trim(),
-        type:     category,
-        who:      who.trim(),
-        note:     note.trim(),
-        status:   "approved",
+        title: title.trim(), date, time,
+        location: location.trim(), type: category,
+        note: note.trim(), status: "approved",
         createdAt: serverTimestamp(),
       });
       await addDoc(collection(db, "notifications"), {
-        message:    `"${title.trim()}" has been added! 🎉`,
-        type:       "approved",
-        eventTitle: title.trim(),
-        createdAt:  serverTimestamp(),
+        message: `"${title.trim()}" has been added! 🎉`,
+        type: "approved", eventTitle: title.trim(),
+        createdAt: serverTimestamp(),
       });
       onClose();
     } catch (err) { alert("Error: " + err.message); }
@@ -90,12 +84,10 @@ function AddEventModal({ onClose, dm }) {
   }
 
   return (
-    <div
-      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500 }}
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500 }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.25)" }}>
-
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
           <h2 style={{ fontSize:18, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489", margin:0 }}>➕ add event</h2>
           <button onClick={onClose} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#bbb" }}>✕</button>
@@ -131,9 +123,6 @@ function AddEventModal({ onClose, dm }) {
         <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>location (optional)</label>
         <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="park, venue, address…" style={{ marginBottom:14 }} />
 
-        <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>who's coming (optional)</label>
-        <input value={who} onChange={e=>setWho(e.target.value)} placeholder="Jake, Sam, the whole squad…" style={{ marginBottom:14 }} />
-
         <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>notes (optional)</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="anything the squad should know…" style={{ height:64, resize:"vertical", marginBottom:20 }} />
 
@@ -152,31 +141,20 @@ function AddEventModal({ onClose, dm }) {
 function AdminPill({ event, color, onClick }) {
   const c = color || DEFAULT_COLORS.hangout;
   return (
-    <div
-      onClick={e => { e.stopPropagation(); onClick && onClick(); }}
-      onTouchStart={e => e.stopPropagation()}
-      style={{
-        background: c.bg, color: c.color,
-        fontSize: 10, padding: "2px 6px",
-        borderRadius: 5, marginBottom: 2,
-        whiteSpace: "nowrap", overflow: "hidden",
-        textOverflow: "ellipsis", fontWeight: 600,
-        cursor: "pointer", touchAction: "manipulation",
-        border: event.status === "pending" ? `1.5px dashed ${c.color}` : "none",
-        WebkitTapHighlightColor: "transparent",
-      }}
+    <div onClick={e => { e.stopPropagation(); onClick && onClick(); }} onTouchStart={e => e.stopPropagation()}
+      style={{ background:c.bg, color:c.color, fontSize:10, padding:"2px 6px", borderRadius:5, marginBottom:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", fontWeight:600, cursor:"pointer", touchAction:"manipulation", border: event.status==="pending" ? `1.5px dashed ${c.color}` : "none", WebkitTapHighlightColor:"transparent" }}
     >
       {event.status === "pending" ? "⏳ " : ""}{event.title}
     </div>
   );
 }
 
-// ── RSVP list inside modal ──
+// ── RSVP list ──
 function RsvpList({ eventId }) {
   const [rsvps, setRsvps] = useState([]);
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "events", eventId, "rsvps"), snap =>
-      setRsvps(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    const unsub = onSnapshot(collection(db,"events",eventId,"rsvps"), snap =>
+      setRsvps(snap.docs.map(d => ({ id:d.id, ...d.data() })))
     );
     return () => unsub();
   }, [eventId]);
@@ -199,7 +177,6 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
   const [date,     setDate]     = useState(event.date     || "");
   const [time,     setTime]     = useState(event.time     || "");
   const [location, setLocation] = useState(event.location || "");
-  const [who,      setWho]      = useState(event.who      || "");
   const [note,     setNote]     = useState(event.note     || "");
   const [saving,   setSaving]   = useState(false);
 
@@ -216,13 +193,12 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
 
   async function handleSave() {
     setSaving(true);
-    try { await onSave(event.id, { title, date, time, location, who, note }); setEditing(false); }
+    try { await onSave(event.id, { title, date, time, location, note }); setEditing(false); }
     finally { setSaving(false); }
   }
 
   return (
-    <div
-      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:400 }}
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:400 }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.2)" }}>
@@ -252,8 +228,6 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
             </div>
             <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>location</label>
             <input value={location} onChange={e=>setLocation(e.target.value)} style={{ marginBottom:12 }} />
-            <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>who's coming</label>
-            <input value={who} onChange={e=>setWho(e.target.value)} style={{ marginBottom:12 }} />
             <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>notes</label>
             <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ height:60, resize:"vertical", marginBottom:16 }} />
             <div style={{ display:"flex", gap:8 }}>
@@ -268,7 +242,6 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
             <div style={{ display:"flex", flexDirection:"column", gap:8, fontSize:14, color: dm ? "#aaa" : "#666", marginBottom:16 }}>
               {dateStr        && <span>📅 {dateStr}{event.time ? ` at ${event.time}` : ""}</span>}
               {event.location && <span>📍 {event.location}</span>}
-              {event.who      && <span>👥 {event.who}</span>}
               {event.note     && <span>📝 {event.note}</span>}
             </div>
             <div style={{ borderTop:`1px solid ${dm ? "rgba(255,255,255,0.08)" : "#eee"}`, paddingTop:12, marginBottom:16 }}>
@@ -295,7 +268,7 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
   );
 }
 
-// ── Mini month for year view ──
+// ── Mini month ──
 function MiniMonth({ year, month, events, today, onClick }) {
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -311,9 +284,7 @@ function MiniMonth({ year, month, events, today, onClick }) {
     <div onClick={() => onClick(year, month)} style={{ cursor:"pointer", padding:"10px 6px", borderRadius:12, background: isCurMonth ? "rgba(127,119,221,0.1)" : "transparent", border: isCurMonth ? "1px solid rgba(127,119,221,0.25)" : "1px solid transparent" }}>
       <div style={{ fontSize:13, fontWeight:700, color: isCurMonth ? "#7F77DD" : "#333", marginBottom:6 }}>{MONTHS_SHORT[month]}</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)" }}>
-        {DAYS_MINI.map((d, i) => (
-          <div key={i} style={{ fontSize:7, color:"#bbb", textAlign:"center", fontWeight:700 }}>{d}</div>
-        ))}
+        {DAYS_MINI.map((d, i) => <div key={i} style={{ fontSize:7, color:"#bbb", textAlign:"center", fontWeight:700 }}>{d}</div>)}
         {cells.map((cell, i) => {
           const key     = cell.current ? `${year}-${String(month+1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}` : null;
           const hasE    = key && events.some(e => e.date === key);
@@ -324,9 +295,7 @@ function MiniMonth({ year, month, events, today, onClick }) {
               <div style={{ fontSize:8, textAlign:"center", color: isTod ? "#fff" : cell.current ? "#444" : "#ddd", background: isTod ? "#7F77DD" : "transparent", borderRadius:"50%", width:13, height:13, display:"flex", alignItems:"center", justifyContent:"center" }}>
                 {cell.current ? cell.day : ""}
               </div>
-              {hasE && !isTod && (
-                <div style={{ width:3, height:3, borderRadius:"50%", background: hasPend ? "#92400E" : "#7F77DD", marginTop:1 }} />
-              )}
+              {hasE && !isTod && <div style={{ width:3, height:3, borderRadius:"50%", background: hasPend ? "#92400E" : "#7F77DD", marginTop:1 }} />}
             </div>
           );
         })}
@@ -365,19 +334,17 @@ export default function AdminCalendar({ darkMode = false }) {
   };
 
   useEffect(() => {
-    const u1 = onSnapshot(collection(db, "events"), snap => {
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const u1 = onSnapshot(collection(db,"events"), snap => {
+      const all = snap.docs.map(d => ({ id:d.id, ...d.data() }));
       setEvents(all.filter(e => e.status === "pending" || e.status === "approved"));
     });
-    const u2 = onSnapshot(collection(db, "categories"), snap =>
-      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    const u2 = onSnapshot(collection(db,"categories"), snap =>
+      setCategories(snap.docs.map(d => ({ id:d.id, ...d.data() })))
     );
     return () => { u1(); u2(); };
   }, []);
 
-  const filteredEvents = events.filter(e =>
-    filter === "all" ? true : e.status === filter
-  );
+  const filteredEvents = events.filter(e => filter === "all" ? true : e.status === filter);
 
   function getColor(event) {
     if (event.status === "pending") return PENDING_COLOR;
@@ -387,21 +354,20 @@ export default function AdminCalendar({ darkMode = false }) {
 
   async function handleApprove(id) {
     const ev = events.find(e => e.id === id);
-    await updateDoc(doc(db, "events", id), { status: "approved" });
+    await updateDoc(doc(db,"events",id), { status:"approved" });
     if (ev) {
-      await addDoc(collection(db, "notifications"), {
-        message: `"${ev.title}" has been approved! 🎉`,
-        type: "approved", eventTitle: ev.title, eventId: id,
-        createdAt: serverTimestamp(),
+      await addDoc(collection(db,"notifications"), {
+        message:`"${ev.title}" has been approved! 🎉`,
+        type:"approved", eventTitle:ev.title, eventId:id, createdAt:serverTimestamp(),
       });
     }
     setSelectedEvent(null);
   }
 
-  async function handleReject(id)  { await deleteDoc(doc(db, "events", id)); setSelectedEvent(null); }
-  async function handleRemove(id)  { await deleteDoc(doc(db, "events", id)); setSelectedEvent(null); }
+  async function handleReject(id)  { await deleteDoc(doc(db,"events",id)); setSelectedEvent(null); }
+  async function handleRemove(id)  { await deleteDoc(doc(db,"events",id)); setSelectedEvent(null); }
   async function handleSave(id, data) {
-    await updateDoc(doc(db, "events", id), data);
+    await updateDoc(doc(db,"events",id), data);
     setSelectedEvent(prev => prev ? { ...prev, ...data } : null);
   }
 
@@ -409,55 +375,48 @@ export default function AdminCalendar({ darkMode = false }) {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   }
   function isToday(date) {
-    return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+    return date.getDate()===today.getDate() && date.getMonth()===today.getMonth() && date.getFullYear()===today.getFullYear();
   }
-  function eventsForDate(date) {
-    return filteredEvents.filter(e => e.date === dateKey(date));
-  }
-  function getWeekStart(date) {
-    const d = new Date(date); d.setDate(d.getDate() - d.getDay()); return d;
-  }
+  function eventsForDate(date) { return filteredEvents.filter(e => e.date === dateKey(date)); }
+  function getWeekStart(date) { const d=new Date(date); d.setDate(d.getDate()-d.getDay()); return d; }
   function getWeekDays(date) {
     const start = getWeekStart(date);
-    return Array.from({ length:7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate()+i); return d; });
+    return Array.from({length:7},(_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return d; });
   }
   function navigate(dir) {
     const d = new Date(focusDate);
-    if      (view === "year")  d.setFullYear(d.getFullYear() + dir);
-    else if (view === "month") d.setMonth(d.getMonth() + dir);
-    else if (view === "week")  d.setDate(d.getDate() + dir * 7);
-    else                       d.setDate(d.getDate() + dir);
+    if      (view==="year")  d.setFullYear(d.getFullYear()+dir);
+    else if (view==="month") d.setMonth(d.getMonth()+dir);
+    else if (view==="week")  d.setDate(d.getDate()+dir*7);
+    else                     d.setDate(d.getDate()+dir);
     setFocusDate(d);
   }
   function getHeaderLabel() {
-    if (view === "year")  return focusDate.getFullYear().toString();
-    if (view === "month") return `${MONTHS[focusDate.getMonth()]} ${focusDate.getFullYear()}`;
-    if (view === "week") {
-      const days = getWeekDays(focusDate);
-      const s = days[0], e = days[6];
-      if (s.getMonth() === e.getMonth()) return `${MONTHS_SHORT[s.getMonth()]} ${s.getDate()} – ${e.getDate()}`;
+    if (view==="year")  return focusDate.getFullYear().toString();
+    if (view==="month") return `${MONTHS[focusDate.getMonth()]} ${focusDate.getFullYear()}`;
+    if (view==="week") {
+      const days=getWeekDays(focusDate), s=days[0], e=days[6];
+      if (s.getMonth()===e.getMonth()) return `${MONTHS_SHORT[s.getMonth()]} ${s.getDate()} – ${e.getDate()}`;
       return `${MONTHS_SHORT[s.getMonth()]} ${s.getDate()} – ${MONTHS_SHORT[e.getMonth()]} ${e.getDate()}`;
     }
-    return focusDate.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" });
+    return focusDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   }
 
-  const yr = focusDate.getFullYear(), mo = focusDate.getMonth();
-  const firstDay    = new Date(yr, mo, 1).getDay();
-  const daysInMonth = new Date(yr, mo + 1, 0).getDate();
-  const prevDays    = new Date(yr, mo, 0).getDate();
-  const cells = [];
-  for (let i = 0; i < firstDay; i++) cells.push({ day: prevDays - firstDay + 1 + i, current: false });
-  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, current: true });
-  const rem = (7 - cells.length % 7) % 7;
-  for (let d = 1; d <= rem; d++) cells.push({ day: d, current: false });
+  const yr=focusDate.getFullYear(), mo=focusDate.getMonth();
+  const firstDay=new Date(yr,mo,1).getDay(), daysInMonth=new Date(yr,mo+1,0).getDate(), prevDays=new Date(yr,mo,0).getDate();
+  const cells=[];
+  for(let i=0;i<firstDay;i++) cells.push({day:prevDays-firstDay+1+i,current:false});
+  for(let d=1;d<=daysInMonth;d++) cells.push({day:d,current:true});
+  const rem=(7-cells.length%7)%7;
+  for(let d=1;d<=rem;d++) cells.push({day:d,current:false});
 
-  const pendingCount  = events.filter(e => e.status === "pending").length;
-  const approvedCount = events.filter(e => e.status === "approved").length;
+  const pendingCount  = events.filter(e=>e.status==="pending").length;
+  const approvedCount = events.filter(e=>e.status==="approved").length;
 
   return (
     <div>
 
-      {/* ── Top bar: filter + add button ── */}
+      {/* Top bar */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, gap:8, flexWrap:"wrap" }}>
         <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
           {[
@@ -474,16 +433,13 @@ export default function AdminCalendar({ darkMode = false }) {
             }}>{f.label}</button>
           ))}
         </div>
-
-        <button
-          onClick={() => setAddingEvent(true)}
-          style={{ padding:"7px 16px", borderRadius:20, background:"#1D9E75", color:"#fff", border:"none", fontSize:13, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:6 }}
-        >
+        <button onClick={() => setAddingEvent(true)}
+          style={{ padding:"7px 16px", borderRadius:20, background:"#1D9E75", color:"#fff", border:"none", fontSize:13, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
           ＋ add event
         </button>
       </div>
 
-      {/* ── Legend ── */}
+      {/* Legend */}
       <div style={{ display:"flex", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         <span style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:t.textSec }}>
           <span style={{ display:"inline-block", width:8, height:8, borderRadius:"50%", background:"#FEF3C7", border:"1.5px dashed #92400E" }} />pending
@@ -493,7 +449,7 @@ export default function AdminCalendar({ darkMode = false }) {
         </span>
       </div>
 
-      {/* ── View switcher ── */}
+      {/* View switcher */}
       <div style={{ display:"flex", justifyContent:"center", marginBottom:16 }}>
         <div style={{ display:"flex", background:t.switchBg, borderRadius:10, padding:3, gap:2 }}>
           {["year","month","week","day"].map(v => (
@@ -503,13 +459,13 @@ export default function AdminCalendar({ darkMode = false }) {
               color:       view===v ? (dm ? "#9B94FF" : "#3C3489") : t.textSec,
               fontWeight:  view===v ? 700 : 400,
               boxShadow:   view===v ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
-              transition:  "all 0.15s", touchAction:"manipulation",
+              transition:"all 0.15s", touchAction:"manipulation",
             }}>{v}</button>
           ))}
         </div>
       </div>
 
-      {/* ── Nav ── */}
+      {/* Nav */}
       {view !== "day" && (
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
           <button onClick={() => navigate(-1)} style={{ width:36, height:36, borderRadius:"50%", border:`1px solid ${t.cellBorder}`, background:t.navBg, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:t.text }}>‹</button>
@@ -518,18 +474,18 @@ export default function AdminCalendar({ darkMode = false }) {
         </div>
       )}
 
-      {/* ══════════ YEAR VIEW ══════════ */}
+      {/* ── YEAR ── */}
       {view === "year" && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6 }}>
-          {Array.from({ length:12 }, (_, m) => (
+          {Array.from({length:12},(_,m) => (
             <MiniMonth key={m} year={yr} month={m} events={filteredEvents} today={today}
-              onClick={(y, month) => { setFocusDate(new Date(y, month, 1)); setView("month"); }}
+              onClick={(y,month) => { setFocusDate(new Date(y,month,1)); setView("month"); }}
             />
           ))}
         </div>
       )}
 
-      {/* ══════════ MONTH VIEW ══════════ */}
+      {/* ── MONTH ── */}
       {view === "month" && (
         <>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", marginBottom:6 }}>
@@ -538,11 +494,11 @@ export default function AdminCalendar({ darkMode = false }) {
             ))}
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
-            {cells.map((cell, i) => {
-              const cellDate  = cell.current ? new Date(yr, mo, cell.day) : null;
+            {cells.map((cell,i) => {
+              const cellDate  = cell.current ? new Date(yr,mo,cell.day) : null;
               const dayEvents = cellDate ? eventsForDate(cellDate) : [];
               const tod       = cellDate && isToday(cellDate);
-              const hasPend   = dayEvents.some(e => e.status === "pending");
+              const hasPend   = dayEvents.some(e => e.status==="pending");
               return (
                 <div key={i} style={{ background: cell.current ? t.cellBg : t.cellBgOther, minHeight:82, padding:"6px 5px", cursor:"default", borderRadius:10, border: tod ? "2px solid #7F77DD" : hasPend ? "1.5px dashed #EF9F27" : `1px solid ${t.cellBorder}` }}>
                   <div style={{ width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"50%", background: tod ? "#7F77DD" : "transparent", color: tod ? "#fff" : cell.current ? t.text : t.textMuted, fontSize:12, fontWeight: tod ? 700 : 500, marginBottom:3 }}>
@@ -559,24 +515,16 @@ export default function AdminCalendar({ darkMode = false }) {
         </>
       )}
 
-      {/* ══════════ WEEK VIEW ══════════ */}
+      {/* ── WEEK ── */}
       {view === "week" && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
-          {getWeekDays(focusDate).map((day, i) => {
-            const dayEvents = eventsForDate(day);
-            const tod       = isToday(day);
-            const hasPend   = dayEvents.some(e => e.status === "pending");
+          {getWeekDays(focusDate).map((day,i) => {
+            const dayEvents=eventsForDate(day), tod=isToday(day), hasPend=dayEvents.some(e=>e.status==="pending");
             return (
               <div key={i} style={{ cursor:"default", borderRadius:12, padding:"8px 4px", background: tod ? "rgba(127,119,221,0.08)" : t.cellBg, border: tod ? "2px solid #7F77DD" : hasPend ? "1.5px dashed #EF9F27" : `1px solid ${t.cellBorder}`, minHeight:110 }}>
-                <div style={{ textAlign:"center", fontSize:9, fontWeight:700, color:t.textMuted, textTransform:"uppercase", marginBottom:4 }}>
-                  {DAYS_SHORT[day.getDay()]}
-                </div>
-                <div style={{ width:26, height:26, borderRadius:"50%", background: tod ? "#7F77DD" : "transparent", color: tod ? "#fff" : t.text, fontSize:13, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 6px" }}>
-                  {day.getDate()}
-                </div>
-                {dayEvents.slice(0,3).map(ev => (
-                  <AdminPill key={ev.id} event={ev} color={getColor(ev)} onClick={() => setSelectedEvent(ev)} />
-                ))}
+                <div style={{ textAlign:"center", fontSize:9, fontWeight:700, color:t.textMuted, textTransform:"uppercase", marginBottom:4 }}>{DAYS_SHORT[day.getDay()]}</div>
+                <div style={{ width:26, height:26, borderRadius:"50%", background: tod ? "#7F77DD" : "transparent", color: tod ? "#fff" : t.text, fontSize:13, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 6px" }}>{day.getDate()}</div>
+                {dayEvents.slice(0,3).map(ev => <AdminPill key={ev.id} event={ev} color={getColor(ev)} onClick={() => setSelectedEvent(ev)} />)}
                 {dayEvents.length > 3 && <div style={{ fontSize:9, color:t.textMuted, textAlign:"center" }}>+{dayEvents.length-3}</div>}
               </div>
             );
@@ -584,38 +532,33 @@ export default function AdminCalendar({ darkMode = false }) {
         </div>
       )}
 
-      {/* ══════════ DAY VIEW ══════════ */}
+      {/* ── DAY ── */}
       {view === "day" && (() => {
-        const weekDays  = getWeekDays(focusDate);
-        const dayEvents = eventsForDate(focusDate);
-        const timedEvs  = dayEvents.filter(e => e.time);
-        const allDayEvs = dayEvents.filter(e => !e.time);
-        const hours     = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => i + DAY_START);
-
+        const weekDays=getWeekDays(focusDate), dayEvents=eventsForDate(focusDate);
+        const timedEvs=dayEvents.filter(e=>e.time), allDayEvs=dayEvents.filter(e=>!e.time);
+        const hours=Array.from({length:DAY_END-DAY_START+1},(_,i)=>i+DAY_START);
         return (
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:12 }}>
-              <button onClick={() => navigate(-1)} style={{ width:28, height:28, borderRadius:"50%", border:`1px solid ${t.cellBorder}`, background:"transparent", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:t.text, flexShrink:0 }}>‹</button>
+              <button onClick={()=>navigate(-1)} style={{ width:28,height:28,borderRadius:"50%",border:`1px solid ${t.cellBorder}`,background:"transparent",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:t.text,flexShrink:0 }}>‹</button>
               <div style={{ flex:1, display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
-                {weekDays.map((day, i) => {
-                  const tod = isToday(day), sel = dateKey(day) === dateKey(focusDate);
+                {weekDays.map((day,i) => {
+                  const tod=isToday(day), sel=dateKey(day)===dateKey(focusDate);
                   return (
-                    <div key={i} onClick={() => setFocusDate(new Date(day))} style={{ textAlign:"center", cursor:"pointer", padding:"4px 2px", borderRadius:10 }}>
-                      <div style={{ fontSize:9, fontWeight:700, color:t.textMuted, textTransform:"uppercase", marginBottom:3 }}>{DAYS_SHORT[day.getDay()].charAt(0)}</div>
-                      <div style={{ width:28, height:28, borderRadius:"50%", background: tod ? "#7F77DD" : sel ? "rgba(127,119,221,0.15)" : "transparent", color: tod ? "#fff" : sel ? "#7F77DD" : t.text, fontSize:14, fontWeight: tod||sel ? 700 : 500, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto" }}>
-                        {day.getDate()}
-                      </div>
+                    <div key={i} onClick={()=>setFocusDate(new Date(day))} style={{ textAlign:"center",cursor:"pointer",padding:"4px 2px",borderRadius:10 }}>
+                      <div style={{ fontSize:9,fontWeight:700,color:t.textMuted,textTransform:"uppercase",marginBottom:3 }}>{DAYS_SHORT[day.getDay()].charAt(0)}</div>
+                      <div style={{ width:28,height:28,borderRadius:"50%",background:tod?"#7F77DD":sel?"rgba(127,119,221,0.15)":"transparent",color:tod?"#fff":sel?"#7F77DD":t.text,fontSize:14,fontWeight:tod||sel?700:500,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto" }}>{day.getDate()}</div>
                     </div>
                   );
                 })}
               </div>
-              <button onClick={() => navigate(1)} style={{ width:28, height:28, borderRadius:"50%", border:`1px solid ${t.cellBorder}`, background:"transparent", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:t.text, flexShrink:0 }}>›</button>
+              <button onClick={()=>navigate(1)} style={{ width:28,height:28,borderRadius:"50%",border:`1px solid ${t.cellBorder}`,background:"transparent",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:t.text,flexShrink:0 }}>›</button>
             </div>
 
-            <div style={{ fontSize:14, fontWeight:700, color:t.text, paddingBottom:8, borderBottom:`1px solid ${t.timeLine}` }}>
-              {focusDate.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}
+            <div style={{ fontSize:14,fontWeight:700,color:t.text,paddingBottom:8,borderBottom:`1px solid ${t.timeLine}` }}>
+              {focusDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}
               {dayEvents.length > 0 && (
-                <span style={{ fontSize:12, fontWeight:400, color:t.textSec, marginLeft:10 }}>
+                <span style={{ fontSize:12,fontWeight:400,color:t.textSec,marginLeft:10 }}>
                   {dayEvents.filter(e=>e.status==="pending").length > 0 && `⏳ ${dayEvents.filter(e=>e.status==="pending").length} pending · `}
                   {dayEvents.filter(e=>e.status==="approved").length > 0 && `✅ ${dayEvents.filter(e=>e.status==="approved").length} approved`}
                 </span>
@@ -623,47 +566,45 @@ export default function AdminCalendar({ darkMode = false }) {
             </div>
 
             {allDayEvs.length > 0 && (
-              <div style={{ marginTop:8, paddingBottom:8, borderBottom:`1px solid ${t.timeLine}` }}>
-                <div style={{ fontSize:10, color:t.textMuted, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>all day</div>
+              <div style={{ marginTop:8,paddingBottom:8,borderBottom:`1px solid ${t.timeLine}` }}>
+                <div style={{ fontSize:10,color:t.textMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6 }}>all day</div>
                 {allDayEvs.map(ev => {
-                  const c = getColor(ev);
+                  const c=getColor(ev);
                   return (
-                    <div key={ev.id} onClick={() => setSelectedEvent(ev)}
-                      style={{ background:c.bg, color:c.color, borderRadius:8, padding:"6px 10px", fontSize:13, fontWeight:600, cursor:"pointer", marginBottom:4, border: ev.status==="pending" ? `1.5px dashed ${c.color}` : "none" }}>
-                      {ev.status === "pending" ? "⏳ " : ""}{ev.title}
+                    <div key={ev.id} onClick={()=>setSelectedEvent(ev)}
+                      style={{ background:c.bg,color:c.color,borderRadius:8,padding:"6px 10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:4,border:ev.status==="pending"?`1.5px dashed ${c.color}`:"none" }}>
+                      {ev.status==="pending"?"⏳ ":""}{ev.title}
                     </div>
                   );
                 })}
               </div>
             )}
 
-            <div style={{ position:"relative", height:`${(DAY_END - DAY_START) * HOUR_HEIGHT}px`, marginTop:8 }}>
+            <div style={{ position:"relative", height:`${(DAY_END-DAY_START)*HOUR_HEIGHT}px`, marginTop:8 }}>
               {hours.map(h => (
-                <div key={h} style={{ position:"absolute", top:`${(h - DAY_START) * HOUR_HEIGHT}px`, left:0, right:0, display:"flex", alignItems:"flex-start" }}>
-                  <span style={{ fontSize:10, color:t.textMuted, fontWeight:600, width:46, flexShrink:0, paddingTop:2, textAlign:"right", paddingRight:8 }}>{formatHour(h)}</span>
-                  <div style={{ flex:1, borderTop:`1px solid ${t.timeLine}`, height:`${HOUR_HEIGHT}px` }} />
+                <div key={h} style={{ position:"absolute",top:`${(h-DAY_START)*HOUR_HEIGHT}px`,left:0,right:0,display:"flex",alignItems:"flex-start" }}>
+                  <span style={{ fontSize:10,color:t.textMuted,fontWeight:600,width:46,flexShrink:0,paddingTop:2,textAlign:"right",paddingRight:8 }}>{formatHour(h)}</span>
+                  <div style={{ flex:1,borderTop:`1px solid ${t.timeLine}`,height:`${HOUR_HEIGHT}px` }} />
                 </div>
               ))}
-
               {timedEvs.map(ev => {
-                const hrs = parseTimeHours(ev.time);
-                if (hrs === null || hrs < DAY_START || hrs > DAY_END) return null;
-                const c = getColor(ev);
+                const hrs=parseTimeHours(ev.time);
+                if(hrs===null||hrs<DAY_START||hrs>DAY_END) return null;
+                const c=getColor(ev);
                 return (
-                  <div key={ev.id} onClick={() => setSelectedEvent(ev)}
-                    style={{ position:"absolute", top:`${(hrs - DAY_START) * HOUR_HEIGHT}px`, left:52, right:0, background:c.bg, color:c.color, borderRadius:10, padding:"8px 10px", cursor:"pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.1)", minHeight:44, zIndex:1, borderLeft:`3px solid ${c.color}` }}>
-                    <div style={{ fontWeight:700, fontSize:13 }}>{ev.status === "pending" ? "⏳ " : ""}{ev.title}</div>
-                    <div style={{ fontSize:11, opacity:0.75, marginTop:2 }}>{ev.time}{ev.location ? ` · ${ev.location}` : ""}</div>
+                  <div key={ev.id} onClick={()=>setSelectedEvent(ev)}
+                    style={{ position:"absolute",top:`${(hrs-DAY_START)*HOUR_HEIGHT}px`,left:52,right:0,background:c.bg,color:c.color,borderRadius:10,padding:"8px 10px",cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.1)",minHeight:44,zIndex:1,borderLeft:`3px solid ${c.color}` }}>
+                    <div style={{ fontWeight:700,fontSize:13 }}>{ev.status==="pending"?"⏳ ":""}{ev.title}</div>
+                    <div style={{ fontSize:11,opacity:0.75,marginTop:2 }}>{ev.time}{ev.location?` · ${ev.location}`:""}</div>
                   </div>
                 );
               })}
-
               {isToday(focusDate) && (() => {
-                const now = new Date(), nowH = now.getHours() + now.getMinutes() / 60;
-                if (nowH < DAY_START || nowH > DAY_END) return null;
+                const now=new Date(), nowH=now.getHours()+now.getMinutes()/60;
+                if(nowH<DAY_START||nowH>DAY_END) return null;
                 return (
-                  <div style={{ position:"absolute", top:`${(nowH - DAY_START) * HOUR_HEIGHT}px`, left:46, right:0, height:2, background:"#E53E3E", zIndex:2, display:"flex", alignItems:"center" }}>
-                    <div style={{ width:8, height:8, borderRadius:"50%", background:"#E53E3E", marginLeft:-4 }} />
+                  <div style={{ position:"absolute",top:`${(nowH-DAY_START)*HOUR_HEIGHT}px`,left:46,right:0,height:2,background:"#E53E3E",zIndex:2,display:"flex",alignItems:"center" }}>
+                    <div style={{ width:8,height:8,borderRadius:"50%",background:"#E53E3E",marginLeft:-4 }} />
                   </div>
                 );
               })()}
@@ -672,27 +613,12 @@ export default function AdminCalendar({ darkMode = false }) {
         );
       })()}
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       {selectedEvent && (
-        <AdminEventModal
-          event={selectedEvent}
-          categories={categories}
-          onClose={() => setSelectedEvent(null)}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          onRemove={handleRemove}
-          onSave={handleSave}
-          dm={dm}
-        />
+        <AdminEventModal event={selectedEvent} categories={categories} onClose={()=>setSelectedEvent(null)}
+          onApprove={handleApprove} onReject={handleReject} onRemove={handleRemove} onSave={handleSave} dm={dm} />
       )}
-
-      {/* categories prop removed — modal fetches its own */}
-      {addingEvent && (
-        <AddEventModal
-          onClose={() => setAddingEvent(false)}
-          dm={dm}
-        />
-      )}
+      {addingEvent && <AddEventModal onClose={()=>setAddingEvent(false)} dm={dm} />}
     </div>
   );
 }
