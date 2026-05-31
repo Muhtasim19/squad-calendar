@@ -3,7 +3,8 @@ import {
   collection, query, where, onSnapshot, doc,
   updateDoc, deleteDoc, addDoc, serverTimestamp, orderBy
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "../firebase";
 import AdminCalendar from "./AdminCalendar";
 
 const PALETTE = [
@@ -59,19 +60,22 @@ function RsvpList({ eventId }) {
 
 // ── Edit event modal ──
 function EditEventModal({ event, onClose, dm, t }) {
-  const [title,    setTitle]    = useState(event.title    || "");
-  const [date,     setDate]     = useState(event.date     || "");
-  const [time,     setTime]     = useState(event.time     || "");
-  const [location, setLocation] = useState(event.location || "");
-  const [who,      setWho]      = useState(event.who      || "");
-  const [note,     setNote]     = useState(event.note     || "");
-  const [saving,   setSaving]   = useState(false);
+  const [title,       setTitle]       = useState(event.title       || "");
+  const [date,        setDate]        = useState(event.date        || "");
+  const [time,        setTime]        = useState(event.time        || "");
+  const [location,    setLocation]    = useState(event.location    || "");
+  const [who,         setWho]         = useState(event.who         || "");
+  const [note,        setNote]        = useState(event.note        || "");
+  const [smsReminder, setSmsReminder] = useState(event.smsReminder || false);
+  const [saving,      setSaving]      = useState(false);
 
   async function handleSave() {
     if (!title || !date) return alert("Title and date are required!");
     setSaving(true);
     try {
-      await updateDoc(doc(db,"events",event.id), { title, date, time, location, who, note });
+      await updateDoc(doc(db,"events",event.id), {
+        title, date, time, location, who, note, smsReminder,
+      });
       onClose();
     } catch (err) { alert("Save failed: " + err.message); }
     finally { setSaving(false); }
@@ -81,13 +85,15 @@ function EditEventModal({ event, onClose, dm, t }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:400, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.2)" }}>
+      <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:400, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.15)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <h2 style={{ fontSize:17, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>edit event</h2>
           <button onClick={onClose} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#bbb" }}>✕</button>
         </div>
+
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>title</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} style={{ marginBottom:12 }} />
+
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
           <div>
             <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>date</label>
@@ -98,12 +104,30 @@ function EditEventModal({ event, onClose, dm, t }) {
             <input type="time" value={time} onChange={e=>setTime(e.target.value)} />
           </div>
         </div>
+
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>location</label>
         <input value={location} onChange={e=>setLocation(e.target.value)} style={{ marginBottom:12 }} />
+
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>who's coming</label>
         <input value={who} onChange={e=>setWho(e.target.value)} style={{ marginBottom:12 }} />
+
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>notes</label>
-        <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ resize:"vertical", height:64, marginBottom:16 }} />
+        <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ resize:"vertical", height:64, marginBottom:14 }} />
+
+        {/* ── SMS Reminder toggle ── */}
+        <div
+          onClick={() => setSmsReminder(!smsReminder)}
+          style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:12, background: smsReminder ? "rgba(29,158,117,0.1)" : (dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"), border:`1.5px solid ${smsReminder ? "rgba(29,158,117,0.4)" : t.border}`, cursor:"pointer", marginBottom:16, transition:"all 0.15s" }}
+        >
+          <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${smsReminder ? "#1D9E75" : t.border}`, background: smsReminder ? "#1D9E75" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
+            {smsReminder && <span style={{ color:"#fff", fontSize:12, fontWeight:700 }}>✓</span>}
+          </div>
+          <div>
+            <p style={{ fontSize:13, fontWeight:600, color: smsReminder ? "#1D9E75" : t.text, margin:0 }}>📱 SMS reminder for this event</p>
+            <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>texts all contacts at 5PM the day before</p>
+          </div>
+        </div>
+
         <div style={{ display:"flex", gap:8 }}>
           <button onClick={onClose} style={{ flex:1, padding:10, borderRadius:10, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:13, color:t.text }}>cancel</button>
           <button onClick={handleSave} disabled={saving} style={{ flex:2, padding:10, borderRadius:10, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:saving?0.7:1 }}>
@@ -139,29 +163,20 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
     setSaving(true);
     try {
       if (noDate) {
-        // Mark as being planned — stays on board
         await updateDoc(doc(db,"board",item.id), {
-          status:      "being_planned",
-          location:    location.trim(),
-          description: note.trim(),
-          updatedAt:   serverTimestamp(),
+          status: "being_planned", location: location.trim(),
+          description: note.trim(), updatedAt: serverTimestamp(),
         });
       } else {
-        // Create approved event + remove from board + notify
         await addDoc(collection(db,"events"), {
           title: title.trim(), date, time,
-          location: location.trim(),
-          type: category,
-          who: who.trim(),
-          note: note.trim(),
-          status: "approved",
-          createdAt: serverTimestamp(),
+          location: location.trim(), type: category,
+          who: who.trim(), note: note.trim(),
+          status: "approved", createdAt: serverTimestamp(),
         });
         await addDoc(collection(db,"notifications"), {
-          message:    `"${title}" has been planned for ${date}! 🎉`,
-          type:       "approved",
-          eventTitle: title,
-          createdAt:  serverTimestamp(),
+          message: `"${title}" has been planned for ${date}! 🎉`,
+          type: "approved", eventTitle: title, createdAt: serverTimestamp(),
         });
         await deleteDoc(doc(db,"board",item.id));
       }
@@ -175,7 +190,6 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.2)" }}>
-
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <h2 style={{ fontSize:17, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>📅 plan it</h2>
           <button onClick={onClose} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#bbb" }}>✕</button>
@@ -184,12 +198,8 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>title</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} style={{ marginBottom:14 }} />
 
-        {/* No date toggle */}
-        <div
-          onClick={() => setNoDate(!noDate)}
-          style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, padding:"10px 12px", borderRadius:12, background: noDate ? "rgba(127,119,221,0.1)" : (dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"), border:`1.5px solid ${noDate ? "rgba(127,119,221,0.3)" : t.border}`, cursor:"pointer", transition:"all 0.15s" }}
-        >
-          <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${noDate ? "#7F77DD" : t.border}`, background: noDate ? "#7F77DD" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
+        <div onClick={() => setNoDate(!noDate)} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16, padding:"10px 12px", borderRadius:12, background: noDate ? "rgba(127,119,221,0.1)" : (dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"), border:`1.5px solid ${noDate ? "rgba(127,119,221,0.3)" : t.border}`, cursor:"pointer" }}>
+          <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${noDate ? "#7F77DD" : t.border}`, background: noDate ? "#7F77DD" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
             {noDate && <span style={{ color:"#fff", fontSize:12, fontWeight:700 }}>✓</span>}
           </div>
           <div>
@@ -198,7 +208,6 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
           </div>
         </div>
 
-        {/* Date fixed fields */}
         {!noDate && (
           <>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
@@ -211,7 +220,6 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
                 <input type="time" value={time} onChange={e=>setTime(e.target.value)} />
               </div>
             </div>
-
             <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:6 }}>category</label>
             <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
               {cats.map(c => (
@@ -220,7 +228,7 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
                   background: category===c.name ? c.color.bg : "none",
                   color:      category===c.name ? c.color.color : t.textSec,
                   border:     `1.5px solid ${category===c.name ? c.color.color : t.border}`,
-                  fontWeight: category===c.name ? 700 : 400, transition:"all 0.15s",
+                  fontWeight: category===c.name ? 700 : 400,
                 }}>{c.name}</button>
               ))}
             </div>
@@ -228,11 +236,9 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
         )}
 
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>location (optional)</label>
-        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="park, venue…" style={{ marginBottom:12 }} />
-
+        <input value={location} onChange={e=>setLocation(e.target.value)} style={{ marginBottom:12 }} />
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>who's coming</label>
-        <input value={who} onChange={e=>setWho(e.target.value)} placeholder="Jake, Sam…" style={{ marginBottom:12 }} />
-
+        <input value={who} onChange={e=>setWho(e.target.value)} style={{ marginBottom:12 }} />
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>notes</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ height:60, resize:"vertical", marginBottom:16 }} />
 
@@ -251,17 +257,16 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
 export default function AdminPanel({ darkMode = false }) {
   const dm = darkMode;
 
-  // ── Theme ──
   const t = {
-    text:     dm ? "#f0f0f0" : "#333",
-    textSec:  dm ? "#888"    : "#888",
-    textMuted:dm ? "#555"    : "#bbb",
-    cardBg:   dm ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.8)",
+    text:      dm ? "#f0f0f0" : "#333",
+    textSec:   dm ? "#888"    : "#888",
+    textMuted: dm ? "#555"    : "#bbb",
+    cardBg:    dm ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.8)",
     cardBorder:dm ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.6)",
-    tabBg:    dm ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.6)",
-    tabBorder:dm ? "rgba(255,255,255,0.12)" : "#ddd",
-    formBg:   dm ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.9)",
-    border:   dm ? "rgba(255,255,255,0.12)" : "#ddd",
+    tabBg:     dm ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.6)",
+    tabBorder: dm ? "rgba(255,255,255,0.12)" : "#ddd",
+    formBg:    dm ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.9)",
+    border:    dm ? "rgba(255,255,255,0.12)" : "#ddd",
     emptyColor:dm ? "#555" : "#bbb",
   };
 
@@ -270,6 +275,7 @@ export default function AdminPanel({ darkMode = false }) {
   const [categories,    setCategories]    = useState([]);
   const [boardItems,    setBoardItems]    = useState([]);
   const [subscribers,   setSubscribers]   = useState([]);
+  const [contacts,      setContacts]      = useState([]);
   const [tab,           setTab]           = useState("calendar");
   const [newName,       setNewName]       = useState("");
   const [newColor,      setNewColor]      = useState(PALETTE[0]);
@@ -282,6 +288,11 @@ export default function AdminPanel({ darkMode = false }) {
   const [boardDesc,     setBoardDesc]     = useState("");
   const [boardWho,      setBoardWho]      = useState("");
   const [planningItem,  setPlanningItem]  = useState(null);
+  const [addingContact, setAddingContact] = useState(false);
+  const [contactName,   setContactName]   = useState("");
+  const [contactPhone,  setContactPhone]  = useState("");
+  const [customMsg,     setCustomMsg]     = useState("");
+  const [sendingMsg,    setSendingMsg]    = useState(false);
 
   useEffect(() => {
     const u1 = onSnapshot(query(collection(db,"events"), where("status","==","pending")),  s => setPending(s.docs.map(d=>({id:d.id,...d.data()}))));
@@ -289,7 +300,8 @@ export default function AdminPanel({ darkMode = false }) {
     const u3 = onSnapshot(collection(db,"categories"), s => setCategories(s.docs.map(d=>({id:d.id,...d.data()}))));
     const u4 = onSnapshot(query(collection(db,"board"), orderBy("createdAt","desc")), s => setBoardItems(s.docs.map(d=>({id:d.id,...d.data()}))));
     const u5 = onSnapshot(collection(db,"fcmTokens"), s => setSubscribers(s.docs.map(d=>({id:d.id,...d.data()}))));
-    return () => { u1(); u2(); u3(); u4(); u5(); };
+    const u6 = onSnapshot(collection(db,"contacts"),  s => setContacts(s.docs.map(d=>({id:d.id,...d.data()}))));
+    return () => { u1(); u2(); u3(); u4(); u5(); u6(); };
   }, []);
 
   async function approve(id) {
@@ -308,6 +320,7 @@ export default function AdminPanel({ darkMode = false }) {
   const deleteCat        = id => deleteDoc(doc(db,"categories",id));
   const deleteBoardItem  = id => deleteDoc(doc(db,"board",id));
   const deleteSubscriber = id => deleteDoc(doc(db,"fcmTokens",id));
+  const deleteContact    = id => deleteDoc(doc(db,"contacts",id));
 
   async function addCat() {
     if (!newName.trim()) return;
@@ -324,6 +337,32 @@ export default function AdminPanel({ darkMode = false }) {
     setBoardTitle(""); setBoardDesc(""); setBoardWho(""); setAddingBoard(false);
   }
 
+  async function addContact() {
+    if (!contactName.trim() || !contactPhone.trim()) return alert("Name and phone are required!");
+    await addDoc(collection(db,"contacts"), {
+      name:  contactName.trim(),
+      phone: contactPhone.trim(),
+      createdAt: serverTimestamp(),
+    });
+    setContactName(""); setContactPhone(""); setAddingContact(false);
+  }
+
+  async function handleSendCustomMsg() {
+    if (!customMsg.trim()) return;
+    if (contacts.length === 0) return alert("No contacts to send to!");
+    setSendingMsg(true);
+    try {
+      const sendFn = httpsCallable(functions, "sendCustomSms");
+      const result = await sendFn({ message: customMsg.trim() });
+      alert(`✅ Sent to ${result.data.sent} of ${result.data.total} contacts!`);
+      setCustomMsg("");
+    } catch (err) {
+      alert("Failed to send: " + err.message);
+    } finally {
+      setSendingMsg(false);
+    }
+  }
+
   function getCatColor(type) {
     const cat = categories.find(c => c.name === type);
     return cat ? cat.color : (DEFAULT_COLORS[type] || { bg:"#eee", color:"#555" });
@@ -336,6 +375,7 @@ export default function AdminPanel({ darkMode = false }) {
     { key:"pending",     label:`pending${pending.length > 0 ? ` (${pending.length})` : ""}` },
     { key:"approved",    label:"approved" },
     { key:"board",       label:"board" },
+    { key:"contacts",    label:`📱 contacts${contacts.length > 0 ? ` (${contacts.length})` : ""}` },
     { key:"subscribers", label:"subscribers" },
     { key:"categories",  label:"categories" },
   ];
@@ -381,6 +421,7 @@ export default function AdminPanel({ darkMode = false }) {
                         <span style={{ background:c.bg, color:c.color, fontSize:11, padding:"2px 10px", borderRadius:20, fontWeight:700 }}>{ev.type}</span>
                         <span style={{ fontWeight:700, fontSize:15, color:t.text }}>{ev.title}</span>
                         <RsvpCount eventId={ev.id} />
+                        {ev.smsReminder && <span style={{ fontSize:11, background:"rgba(29,158,117,0.1)", color:"#1D9E75", padding:"2px 8px", borderRadius:10, fontWeight:600 }}>📱 SMS on</span>}
                       </div>
                       <div style={{ fontSize:13, color:t.textSec, display:"flex", flexDirection:"column", gap:3 }}>
                         <span>📅 {ev.date}{ev.time ? ` at ${ev.time}` : ""}</span>
@@ -422,7 +463,6 @@ export default function AdminPanel({ darkMode = false }) {
       {tab === "board" && (
         <div>
           <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Manage what appears on the Squad Board. Use "plan it" to turn ideas into events.</p>
-
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
             {boardItems.length === 0 && (
               <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>Nothing on the board yet</p>
@@ -432,9 +472,7 @@ export default function AdminPanel({ darkMode = false }) {
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10 }}>
                   <div style={{ flex:1 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, flexWrap:"wrap" }}>
-                      <span style={{ fontSize:16 }}>
-                        {item.type === "announcement" ? "📌" : item.status === "being_planned" ? "🔄" : "💡"}
-                      </span>
+                      <span style={{ fontSize:16 }}>{item.type==="announcement" ? "📌" : item.status==="being_planned" ? "🔄" : "💡"}</span>
                       <span style={{ fontWeight:600, fontSize:14, color:t.text }}>{item.title}</span>
                       <span style={{ fontSize:11, color:t.textMuted, background: dm ? "rgba(255,255,255,0.08)" : "#f5f5f5", borderRadius:10, padding:"1px 8px" }}>{item.type}</span>
                       {item.status === "being_planned" && (
@@ -445,14 +483,9 @@ export default function AdminPanel({ darkMode = false }) {
                     {item.location    && <p style={{ fontSize:12, color:t.textSec, margin:"0 0 2px" }}>📍 {item.location}</p>}
                     {item.who         && <p style={{ fontSize:12, color:t.textMuted, margin:0 }}>by {item.who}</p>}
                   </div>
-
-                  {/* Actions */}
                   <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
                     {item.type === "idea" && (
-                      <button
-                        onClick={() => setPlanningItem(item)}
-                        style={{ padding:"5px 12px", borderRadius:8, background:"rgba(29,158,117,0.1)", border:"1px solid rgba(29,158,117,0.3)", color:"#1D9E75", fontSize:12, cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}
-                      >
+                      <button onClick={() => setPlanningItem(item)} style={{ padding:"5px 12px", borderRadius:8, background:"rgba(29,158,117,0.1)", border:"1px solid rgba(29,158,117,0.3)", color:"#1D9E75", fontSize:12, cursor:"pointer", fontWeight:600 }}>
                         📅 plan it
                       </button>
                     )}
@@ -462,13 +495,12 @@ export default function AdminPanel({ darkMode = false }) {
               </div>
             ))}
           </div>
-
           {!addingBoard ? (
             <button onClick={() => setAddingBoard(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>
               + add to board
             </button>
           ) : (
-            <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:`1px solid rgba(127,119,221,0.2)` }}>
+            <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(127,119,221,0.2)" }}>
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {["announcement","idea"].map(tp => (
                   <button key={tp} onClick={() => setBoardType(tp)} style={{
@@ -477,9 +509,7 @@ export default function AdminPanel({ darkMode = false }) {
                     color:      boardType===tp ? "#fff" : t.textSec,
                     border:     boardType===tp ? "none" : `1px solid ${t.border}`,
                     fontWeight: boardType===tp ? 700 : 400,
-                  }}>
-                    {tp === "announcement" ? "📌 announcement" : "💡 idea"}
-                  </button>
+                  }}>{tp === "announcement" ? "📌 announcement" : "💡 idea"}</button>
                 ))}
               </div>
               <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>title</label>
@@ -495,6 +525,67 @@ export default function AdminPanel({ darkMode = false }) {
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={() => setAddingBoard(false)} style={{ flex:1, padding:8, borderRadius:8, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:13, color:t.text }}>cancel</button>
                 <button onClick={addBoardItem} style={{ flex:2, padding:8, borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13 }}>post to board</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Contacts ── */}
+      {tab === "contacts" && (
+        <div>
+          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>
+            Squad members who receive SMS reminders and announcements. {contacts.length > 0 && `${contacts.length} contact${contacts.length !== 1 ? "s" : ""} saved.`}
+          </p>
+
+          {/* Custom message blast */}
+          <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(29,158,117,0.25)", marginBottom:20 }}>
+            <label style={{ fontSize:13, fontWeight:700, color:"#1D9E75", display:"block", marginBottom:8 }}>📢 send announcement</label>
+            <textarea
+              value={customMsg}
+              onChange={e => setCustomMsg(e.target.value)}
+              placeholder={`Type your message…\n(squadcal.app link added automatically)`}
+              style={{ height:80, resize:"vertical", marginBottom:10 }}
+            />
+            <button
+              onClick={handleSendCustomMsg}
+              disabled={sendingMsg || !customMsg.trim() || contacts.length === 0}
+              style={{ width:"100%", padding:10, borderRadius:10, background:"#1D9E75", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:(sendingMsg || !customMsg.trim() || contacts.length === 0) ? 0.6 : 1 }}
+            >
+              {sendingMsg ? "sending…" : `📱 send to all ${contacts.length} contacts`}
+            </button>
+          </div>
+
+          {/* Contacts list */}
+          <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
+            {contacts.length === 0 && (
+              <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No contacts yet — add your squad members below</p>
+            )}
+            {contacts.map(contact => (
+              <div key={contact.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}`, gap:10 }}>
+                <div>
+                  <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>{contact.name}</p>
+                  <p style={{ fontSize:12, color:t.textMuted, margin:0 }}>{contact.phone}</p>
+                </div>
+                <button onClick={() => deleteContact(contact.id)} style={{ padding:"4px 12px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer", flexShrink:0 }}>remove</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Add contact */}
+          {!addingContact ? (
+            <button onClick={() => setAddingContact(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+              + add contact
+            </button>
+          ) : (
+            <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(127,119,221,0.2)" }}>
+              <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>name</label>
+              <input value={contactName} onChange={e=>setContactName(e.target.value)} placeholder="Jake" style={{ marginBottom:12 }} />
+              <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>phone number</label>
+              <input type="tel" value={contactPhone} onChange={e=>setContactPhone(e.target.value)} placeholder="+1 555 123 4567" style={{ marginBottom:16 }} />
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => setAddingContact(false)} style={{ flex:1, padding:8, borderRadius:8, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:13, color:t.text }}>cancel</button>
+                <button onClick={addContact} style={{ flex:2, padding:8, borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13 }}>save contact</button>
               </div>
             </div>
           )}
@@ -572,20 +663,12 @@ export default function AdminPanel({ darkMode = false }) {
         </div>
       )}
 
-      {/* Edit modal */}
+      {/* Modals */}
       {editingEvent && (
         <EditEventModal event={editingEvent} onClose={() => setEditingEvent(null)} dm={dm} t={t} />
       )}
-
-      {/* Plan It modal */}
       {planningItem && (
-        <PlanItModal
-          item={planningItem}
-          categories={categories}
-          onClose={() => setPlanningItem(null)}
-          dm={dm}
-          t={t}
-        />
+        <PlanItModal item={planningItem} categories={categories} onClose={() => setPlanningItem(null)} dm={dm} t={t} />
       )}
     </div>
   );
