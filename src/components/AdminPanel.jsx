@@ -23,6 +23,51 @@ const DEFAULT_COLORS = {
   sports:  { bg:"#FAC775", color:"#633806" },
 };
 
+// ── Helper: get display name from contact ──
+function getContactName(contact) {
+  const first = contact.firstName || contact.name || "";
+  const last  = contact.lastName  || "";
+  return `${first} ${last}`.trim() || "No name";
+}
+
+// ── Contact checklist component ──
+function ContactChecklist({ contacts, selectedIds, onChange, dm, t }) {
+  function toggle(id) {
+    onChange(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }
+  if (contacts.length === 0) return (
+    <p style={{ fontSize:12, color:t.textMuted, margin:0 }}>No contacts saved yet — add them in the Contacts tab.</p>
+  );
+  return (
+    <div>
+      <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+        <button onClick={() => onChange(contacts.map(c => c.id))} style={{ fontSize:11, padding:"3px 10px", borderRadius:20, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", color:t.textSec }}>select all</button>
+        <button onClick={() => onChange([])} style={{ fontSize:11, padding:"3px 10px", borderRadius:20, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", color:t.textSec }}>deselect all</button>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        {contacts.map(c => {
+          const selected = selectedIds.includes(c.id);
+          return (
+            <div key={c.id} onClick={() => toggle(c.id)}
+              style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:10, cursor:"pointer", background: selected ? "rgba(29,158,117,0.08)" : (dm ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)"), border:`1px solid ${selected ? "rgba(29,158,117,0.3)" : t.border}`, transition:"all 0.15s" }}
+            >
+              <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${selected ? "#1D9E75" : t.border}`, background: selected ? "#1D9E75" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
+                {selected && <span style={{ color:"#fff", fontSize:11, fontWeight:700 }}>✓</span>}
+              </div>
+              <div>
+                <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>{getContactName(c)}</p>
+                <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>{c.phone}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── RsvpCount ──
 function RsvpCount({ eventId }) {
   const [count, setCount] = useState(0);
@@ -59,22 +104,37 @@ function RsvpList({ eventId }) {
 }
 
 // ── Edit event modal ──
-function EditEventModal({ event, onClose, dm, t }) {
-  const [title,       setTitle]       = useState(event.title       || "");
-  const [date,        setDate]        = useState(event.date        || "");
-  const [time,        setTime]        = useState(event.time        || "");
-  const [location,    setLocation]    = useState(event.location    || "");
-  const [who,         setWho]         = useState(event.who         || "");
-  const [note,        setNote]        = useState(event.note        || "");
-  const [smsReminder, setSmsReminder] = useState(event.smsReminder || false);
-  const [saving,      setSaving]      = useState(false);
+function EditEventModal({ event, contacts, onClose, dm, t }) {
+  const [title,         setTitle]         = useState(event.title       || "");
+  const [date,          setDate]          = useState(event.date        || "");
+  const [time,          setTime]          = useState(event.time        || "");
+  const [location,      setLocation]      = useState(event.location    || "");
+  const [who,           setWho]           = useState(event.who         || "");
+  const [note,          setNote]          = useState(event.note        || "");
+  const [smsReminder,   setSmsReminder]   = useState(event.smsReminder || false);
+  const [smsContactIds, setSmsContactIds] = useState(event.smsContactIds || []);
+  const [saving,        setSaving]        = useState(false);
+
+  // Auto-turn off if no contacts selected
+  function handleSmsToggle() {
+    const next = !smsReminder;
+    setSmsReminder(next);
+    if (!next) setSmsContactIds([]);
+  }
 
   async function handleSave() {
     if (!title || !date) return alert("Title and date are required!");
+
+    // Auto-turn off SMS if no contacts selected
+    const finalSms     = smsReminder && smsContactIds.length > 0;
+    const finalIds     = finalSms ? smsContactIds : [];
+
     setSaving(true);
     try {
       await updateDoc(doc(db,"events",event.id), {
-        title, date, time, location, who, note, smsReminder,
+        title, date, time, location, who, note,
+        smsReminder:   finalSms,
+        smsContactIds: finalIds,
       });
       onClose();
     } catch (err) { alert("Save failed: " + err.message); }
@@ -85,7 +145,7 @@ function EditEventModal({ event, onClose, dm, t }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:400, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.15)" }}>
+      <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.15)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <h2 style={{ fontSize:17, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>edit event</h2>
           <button onClick={onClose} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#bbb" }}>✕</button>
@@ -114,19 +174,39 @@ function EditEventModal({ event, onClose, dm, t }) {
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>notes</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ resize:"vertical", height:64, marginBottom:14 }} />
 
-        {/* ── SMS Reminder toggle ── */}
-        <div
-          onClick={() => setSmsReminder(!smsReminder)}
-          style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:12, background: smsReminder ? "rgba(29,158,117,0.1)" : (dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"), border:`1.5px solid ${smsReminder ? "rgba(29,158,117,0.4)" : t.border}`, cursor:"pointer", marginBottom:16, transition:"all 0.15s" }}
+        {/* SMS toggle */}
+        <div onClick={handleSmsToggle}
+          style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:12, background: smsReminder ? "rgba(29,158,117,0.1)" : (dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"), border:`1.5px solid ${smsReminder ? "rgba(29,158,117,0.4)" : t.border}`, cursor:"pointer", marginBottom: smsReminder ? 10 : 16, transition:"all 0.15s" }}
         >
           <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${smsReminder ? "#1D9E75" : t.border}`, background: smsReminder ? "#1D9E75" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
             {smsReminder && <span style={{ color:"#fff", fontSize:12, fontWeight:700 }}>✓</span>}
           </div>
           <div>
             <p style={{ fontSize:13, fontWeight:600, color: smsReminder ? "#1D9E75" : t.text, margin:0 }}>📱 SMS reminder for this event</p>
-            <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>texts all contacts at 5PM the day before</p>
+            <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>
+              {smsReminder
+                ? smsContactIds.length === 0
+                  ? "⚠️ select at least one contact — SMS will be turned off if none selected"
+                  : `texting ${smsContactIds.length} contact${smsContactIds.length !== 1 ? "s" : ""} at 5PM the day before`
+                : "texts selected contacts at 5PM the day before"
+              }
+            </p>
           </div>
         </div>
+
+        {/* Contact checklist — shown when SMS is ON */}
+        {smsReminder && (
+          <div style={{ marginBottom:16, padding:"12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)", border:`1px solid ${t.border}` }}>
+            <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", margin:"0 0 10px" }}>send to</p>
+            <ContactChecklist
+              contacts={contacts}
+              selectedIds={smsContactIds}
+              onChange={setSmsContactIds}
+              dm={dm}
+              t={t}
+            />
+          </div>
+        )}
 
         <div style={{ display:"flex", gap:8 }}>
           <button onClick={onClose} style={{ flex:1, padding:10, borderRadius:10, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:13, color:t.text }}>cancel</button>
@@ -270,29 +350,39 @@ export default function AdminPanel({ darkMode = false }) {
     emptyColor:dm ? "#555" : "#bbb",
   };
 
-  const [pending,       setPending]       = useState([]);
-  const [approved,      setApproved]      = useState([]);
-  const [categories,    setCategories]    = useState([]);
-  const [boardItems,    setBoardItems]    = useState([]);
-  const [subscribers,   setSubscribers]   = useState([]);
-  const [contacts,      setContacts]      = useState([]);
-  const [tab,           setTab]           = useState("calendar");
-  const [newName,       setNewName]       = useState("");
-  const [newColor,      setNewColor]      = useState(PALETTE[0]);
-  const [addingCat,     setAddingCat]     = useState(false);
-  const [editingEvent,  setEditingEvent]  = useState(null);
-  const [expandedRsvps, setExpandedRsvps] = useState(null);
-  const [addingBoard,   setAddingBoard]   = useState(false);
-  const [boardType,     setBoardType]     = useState("announcement");
-  const [boardTitle,    setBoardTitle]    = useState("");
-  const [boardDesc,     setBoardDesc]     = useState("");
-  const [boardWho,      setBoardWho]      = useState("");
-  const [planningItem,  setPlanningItem]  = useState(null);
-  const [addingContact, setAddingContact] = useState(false);
-  const [contactName,   setContactName]   = useState("");
-  const [contactPhone,  setContactPhone]  = useState("");
-  const [customMsg,     setCustomMsg]     = useState("");
-  const [sendingMsg,    setSendingMsg]    = useState(false);
+  const [pending,              setPending]              = useState([]);
+  const [approved,             setApproved]             = useState([]);
+  const [categories,           setCategories]           = useState([]);
+  const [boardItems,           setBoardItems]           = useState([]);
+  const [subscribers,          setSubscribers]          = useState([]);
+  const [contacts,             setContacts]             = useState([]);
+  const [tab,                  setTab]                  = useState("calendar");
+  const [newName,              setNewName]              = useState("");
+  const [newColor,             setNewColor]             = useState(PALETTE[0]);
+  const [addingCat,            setAddingCat]            = useState(false);
+  const [editingEvent,         setEditingEvent]         = useState(null);
+  const [expandedRsvps,        setExpandedRsvps]        = useState(null);
+  const [addingBoard,          setAddingBoard]          = useState(false);
+  const [boardType,            setBoardType]            = useState("announcement");
+  const [boardTitle,           setBoardTitle]           = useState("");
+  const [boardDesc,            setBoardDesc]            = useState("");
+  const [boardWho,             setBoardWho]             = useState("");
+  const [planningItem,         setPlanningItem]         = useState(null);
+
+  // Contacts state
+  const [addingContact,        setAddingContact]        = useState(false);
+  const [contactFirstName,     setContactFirstName]     = useState("");
+  const [contactLastName,      setContactLastName]      = useState("");
+  const [contactPhone,         setContactPhone]         = useState("");
+  const [editingContactId,     setEditingContactId]     = useState(null);
+  const [editFirstName,        setEditFirstName]        = useState("");
+  const [editLastName,         setEditLastName]         = useState("");
+  const [editPhone,            setEditPhone]            = useState("");
+
+  // Announcement state
+  const [customMsg,            setCustomMsg]            = useState("");
+  const [sendingMsg,           setSendingMsg]           = useState(false);
+  const [announcementContacts, setAnnouncementContacts] = useState([]);
 
   useEffect(() => {
     const u1 = onSnapshot(query(collection(db,"events"), where("status","==","pending")),  s => setPending(s.docs.map(d=>({id:d.id,...d.data()}))));
@@ -338,24 +428,43 @@ export default function AdminPanel({ darkMode = false }) {
   }
 
   async function addContact() {
-    if (!contactName.trim() || !contactPhone.trim()) return alert("Name and phone are required!");
+    if (!contactPhone.trim()) return alert("Phone number is required!");
     await addDoc(collection(db,"contacts"), {
-      name:  contactName.trim(),
-      phone: contactPhone.trim(),
-      createdAt: serverTimestamp(),
+      firstName:  contactFirstName.trim(),
+      lastName:   contactLastName.trim(),
+      phone:      contactPhone.trim(),
+      createdAt:  serverTimestamp(),
     });
-    setContactName(""); setContactPhone(""); setAddingContact(false);
+    setContactFirstName(""); setContactLastName(""); setContactPhone(""); setAddingContact(false);
+  }
+
+  function startEditContact(contact) {
+    setEditingContactId(contact.id);
+    setEditFirstName(contact.firstName || contact.name || "");
+    setEditLastName(contact.lastName   || "");
+    setEditPhone(contact.phone         || "");
+  }
+
+  async function saveEditContact() {
+    if (!editPhone.trim()) return alert("Phone number is required!");
+    await updateDoc(doc(db,"contacts",editingContactId), {
+      firstName: editFirstName.trim(),
+      lastName:  editLastName.trim(),
+      phone:     editPhone.trim(),
+    });
+    setEditingContactId(null);
   }
 
   async function handleSendCustomMsg() {
-    if (!customMsg.trim()) return;
-    if (contacts.length === 0) return alert("No contacts to send to!");
+    if (!customMsg.trim()) return alert("Please type a message first!");
+    if (announcementContacts.length === 0) return alert("Please select at least one contact!");
     setSendingMsg(true);
     try {
       const sendFn = httpsCallable(functions, "sendCustomSms");
-      const result = await sendFn({ message: customMsg.trim() });
+      const result = await sendFn({ message: customMsg.trim(), contactIds: announcementContacts });
       alert(`✅ Sent to ${result.data.sent} of ${result.data.total} contacts!`);
       setCustomMsg("");
+      setAnnouncementContacts([]);
     } catch (err) {
       alert("Failed to send: " + err.message);
     } finally {
@@ -383,10 +492,9 @@ export default function AdminPanel({ darkMode = false }) {
   return (
     <div>
 
-      {/* ── Calendar ── */}
       {tab === "calendar" && <AdminCalendar darkMode={dm} />}
 
-      {/* ── Tabs ── */}
+      {/* Tabs */}
       <div style={{ display:"flex", gap:6, marginBottom:"1.5rem", overflowX:"auto", paddingBottom:4, scrollbarWidth:"none", msOverflowStyle:"none" }}>
         {TABS.map(t_ => (
           <button key={t_.key} onClick={() => setTab(t_.key)} style={{
@@ -396,12 +504,11 @@ export default function AdminPanel({ darkMode = false }) {
             color:      tab===t_.key ? "#fff" : t.textSec,
             border:     tab===t_.key ? "none" : `1px solid ${t.tabBorder}`,
             fontWeight: tab===t_.key ? 700 : 400,
-            backdropFilter:"blur(8px)",
           }}>{t_.label}</button>
         ))}
       </div>
 
-      {/* ── Events (pending + approved) ── */}
+      {/* ── Events ── */}
       {(tab === "pending" || tab === "approved") && (
         <>
           {events.length === 0 && (
@@ -411,17 +518,20 @@ export default function AdminPanel({ darkMode = false }) {
           )}
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {events.map(ev => {
-              const c          = getCatColor(ev.type);
-              const isExpanded = expandedRsvps === ev.id;
+              const c = getCatColor(ev.type), isExpanded = expandedRsvps === ev.id;
               return (
-                <div key={ev.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"1rem 1.25rem", backdropFilter:"blur(8px)", boxShadow:"0 2px 12px rgba(0,0,0,0.04)" }}>
+                <div key={ev.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"1rem 1.25rem", backdropFilter:"blur(8px)" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
                     <div style={{ flex:1 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
                         <span style={{ background:c.bg, color:c.color, fontSize:11, padding:"2px 10px", borderRadius:20, fontWeight:700 }}>{ev.type}</span>
                         <span style={{ fontWeight:700, fontSize:15, color:t.text }}>{ev.title}</span>
                         <RsvpCount eventId={ev.id} />
-                        {ev.smsReminder && <span style={{ fontSize:11, background:"rgba(29,158,117,0.1)", color:"#1D9E75", padding:"2px 8px", borderRadius:10, fontWeight:600 }}>📱 SMS on</span>}
+                        {ev.smsReminder && (
+                          <span style={{ fontSize:11, background:"rgba(29,158,117,0.1)", color:"#1D9E75", padding:"2px 8px", borderRadius:10, fontWeight:600 }}>
+                            📱 SMS to {ev.smsContactIds?.length || 0}
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize:13, color:t.textSec, display:"flex", flexDirection:"column", gap:3 }}>
                         <span>📅 {ev.date}{ev.time ? ` at ${ev.time}` : ""}</span>
@@ -462,22 +572,18 @@ export default function AdminPanel({ darkMode = false }) {
       {/* ── Board ── */}
       {tab === "board" && (
         <div>
-          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Manage what appears on the Squad Board. Use "plan it" to turn ideas into events.</p>
+          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Manage what appears on the Squad Board.</p>
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-            {boardItems.length === 0 && (
-              <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>Nothing on the board yet</p>
-            )}
+            {boardItems.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>Nothing on the board yet</p>}
             {boardItems.map(item => (
-              <div key={item.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"12px 14px", backdropFilter:"blur(8px)" }}>
+              <div key={item.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"12px 14px" }}>
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10 }}>
                   <div style={{ flex:1 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, flexWrap:"wrap" }}>
                       <span style={{ fontSize:16 }}>{item.type==="announcement" ? "📌" : item.status==="being_planned" ? "🔄" : "💡"}</span>
                       <span style={{ fontWeight:600, fontSize:14, color:t.text }}>{item.title}</span>
                       <span style={{ fontSize:11, color:t.textMuted, background: dm ? "rgba(255,255,255,0.08)" : "#f5f5f5", borderRadius:10, padding:"1px 8px" }}>{item.type}</span>
-                      {item.status === "being_planned" && (
-                        <span style={{ fontSize:11, background:"rgba(127,119,221,0.12)", color:"#7F77DD", borderRadius:10, padding:"1px 8px", fontWeight:600 }}>🔄 being planned</span>
-                      )}
+                      {item.status === "being_planned" && <span style={{ fontSize:11, background:"rgba(127,119,221,0.12)", color:"#7F77DD", borderRadius:10, padding:"1px 8px", fontWeight:600 }}>🔄 being planned</span>}
                     </div>
                     {item.description && <p style={{ fontSize:12, color:t.textSec, margin:"0 0 2px" }}>{item.description}</p>}
                     {item.location    && <p style={{ fontSize:12, color:t.textSec, margin:"0 0 2px" }}>📍 {item.location}</p>}
@@ -485,9 +591,7 @@ export default function AdminPanel({ darkMode = false }) {
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
                     {item.type === "idea" && (
-                      <button onClick={() => setPlanningItem(item)} style={{ padding:"5px 12px", borderRadius:8, background:"rgba(29,158,117,0.1)", border:"1px solid rgba(29,158,117,0.3)", color:"#1D9E75", fontSize:12, cursor:"pointer", fontWeight:600 }}>
-                        📅 plan it
-                      </button>
+                      <button onClick={() => setPlanningItem(item)} style={{ padding:"5px 12px", borderRadius:8, background:"rgba(29,158,117,0.1)", border:"1px solid rgba(29,158,117,0.3)", color:"#1D9E75", fontSize:12, cursor:"pointer", fontWeight:600 }}>📅 plan it</button>
                     )}
                     <button onClick={() => deleteBoardItem(item.id)} style={{ padding:"5px 12px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer" }}>delete</button>
                   </div>
@@ -496,20 +600,14 @@ export default function AdminPanel({ darkMode = false }) {
             ))}
           </div>
           {!addingBoard ? (
-            <button onClick={() => setAddingBoard(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>
-              + add to board
-            </button>
+            <button onClick={() => setAddingBoard(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ add to board</button>
           ) : (
             <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(127,119,221,0.2)" }}>
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {["announcement","idea"].map(tp => (
-                  <button key={tp} onClick={() => setBoardType(tp)} style={{
-                    flex:1, padding:"7px", borderRadius:10, fontSize:12, cursor:"pointer",
-                    background: boardType===tp ? "#7F77DD" : "none",
-                    color:      boardType===tp ? "#fff" : t.textSec,
-                    border:     boardType===tp ? "none" : `1px solid ${t.border}`,
-                    fontWeight: boardType===tp ? 700 : 400,
-                  }}>{tp === "announcement" ? "📌 announcement" : "💡 idea"}</button>
+                  <button key={tp} onClick={() => setBoardType(tp)} style={{ flex:1, padding:"7px", borderRadius:10, fontSize:12, cursor:"pointer", background: boardType===tp ? "#7F77DD" : "none", color: boardType===tp ? "#fff" : t.textSec, border: boardType===tp ? "none" : `1px solid ${t.border}`, fontWeight: boardType===tp ? 700 : 400 }}>
+                    {tp === "announcement" ? "📌 announcement" : "💡 idea"}
+                  </button>
                 ))}
               </div>
               <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>title</label>
@@ -535,39 +633,67 @@ export default function AdminPanel({ darkMode = false }) {
       {tab === "contacts" && (
         <div>
           <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>
-            Squad members who receive SMS reminders and announcements. {contacts.length > 0 && `${contacts.length} contact${contacts.length !== 1 ? "s" : ""} saved.`}
+            Squad members who receive SMS reminders and announcements.
           </p>
 
-          {/* Custom message blast */}
+          {/* Announcement */}
           <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(29,158,117,0.25)", marginBottom:20 }}>
             <label style={{ fontSize:13, fontWeight:700, color:"#1D9E75", display:"block", marginBottom:8 }}>📢 send announcement</label>
             <textarea
               value={customMsg}
               onChange={e => setCustomMsg(e.target.value)}
               placeholder={`Type your message…\n(squadcal.app link added automatically)`}
-              style={{ height:80, resize:"vertical", marginBottom:10 }}
+              style={{ height:80, resize:"vertical", marginBottom:12 }}
+            />
+            {/* Recipient checklist */}
+            <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>send to</p>
+            <ContactChecklist
+              contacts={contacts}
+              selectedIds={announcementContacts}
+              onChange={setAnnouncementContacts}
+              dm={dm}
+              t={t}
             />
             <button
               onClick={handleSendCustomMsg}
-              disabled={sendingMsg || !customMsg.trim() || contacts.length === 0}
-              style={{ width:"100%", padding:10, borderRadius:10, background:"#1D9E75", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:(sendingMsg || !customMsg.trim() || contacts.length === 0) ? 0.6 : 1 }}
+              disabled={sendingMsg || !customMsg.trim() || announcementContacts.length === 0}
+              style={{ width:"100%", padding:10, borderRadius:10, background:"#1D9E75", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:(sendingMsg || !customMsg.trim() || announcementContacts.length === 0) ? 0.6 : 1, marginTop:12 }}
             >
-              {sendingMsg ? "sending…" : `📱 send to all ${contacts.length} contacts`}
+              {sendingMsg ? "sending…" : `📱 send to ${announcementContacts.length} contact${announcementContacts.length !== 1 ? "s" : ""}`}
             </button>
           </div>
 
           {/* Contacts list */}
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-            {contacts.length === 0 && (
-              <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No contacts yet — add your squad members below</p>
-            )}
+            {contacts.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No contacts yet — add your squad members below</p>}
             {contacts.map(contact => (
-              <div key={contact.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}`, gap:10 }}>
-                <div>
-                  <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>{contact.name}</p>
-                  <p style={{ fontSize:12, color:t.textMuted, margin:0 }}>{contact.phone}</p>
-                </div>
-                <button onClick={() => deleteContact(contact.id)} style={{ padding:"4px 12px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer", flexShrink:0 }}>remove</button>
+              <div key={contact.id} style={{ background:t.cardBg, borderRadius:12, padding:"10px 14px", border:`1px solid ${t.cardBorder}` }}>
+                {editingContactId === contact.id ? (
+                  /* Edit form */
+                  <div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+                      <input value={editFirstName} onChange={e=>setEditFirstName(e.target.value)} placeholder="First name" />
+                      <input value={editLastName}  onChange={e=>setEditLastName(e.target.value)}  placeholder="Last name" />
+                    </div>
+                    <input type="tel" value={editPhone} onChange={e=>setEditPhone(e.target.value)} placeholder="+1 555 123 4567" style={{ marginBottom:10 }} />
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button onClick={() => setEditingContactId(null)} style={{ flex:1, padding:"6px", borderRadius:8, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:12, color:t.text }}>cancel</button>
+                      <button onClick={saveEditContact} style={{ flex:2, padding:"6px", borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:12 }}>save</button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Contact display */
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+                    <div>
+                      <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>{getContactName(contact)}</p>
+                      <p style={{ fontSize:12, color:t.textMuted, margin:0 }}>{contact.phone}</p>
+                    </div>
+                    <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                      <button onClick={() => startEditContact(contact)} style={{ padding:"4px 10px", borderRadius:8, background:"none", border:`1px solid ${dm ? "rgba(127,119,221,0.4)" : "#7F77DD"}`, color:"#7F77DD", fontSize:12, cursor:"pointer" }}>✏️</button>
+                      <button onClick={() => deleteContact(contact.id)} style={{ padding:"4px 10px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer" }}>remove</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -579,9 +705,17 @@ export default function AdminPanel({ darkMode = false }) {
             </button>
           ) : (
             <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(127,119,221,0.2)" }}>
-              <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>name</label>
-              <input value={contactName} onChange={e=>setContactName(e.target.value)} placeholder="Jake" style={{ marginBottom:12 }} />
-              <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>phone number</label>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+                <div>
+                  <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>first name (optional)</label>
+                  <input value={contactFirstName} onChange={e=>setContactFirstName(e.target.value)} placeholder="Jake" />
+                </div>
+                <div>
+                  <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>last name (optional)</label>
+                  <input value={contactLastName} onChange={e=>setContactLastName(e.target.value)} placeholder="Smith" />
+                </div>
+              </div>
+              <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>phone number *</label>
               <input type="tel" value={contactPhone} onChange={e=>setContactPhone(e.target.value)} placeholder="+1 555 123 4567" style={{ marginBottom:16 }} />
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={() => setAddingContact(false)} style={{ flex:1, padding:8, borderRadius:8, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:13, color:t.text }}>cancel</button>
@@ -599,21 +733,13 @@ export default function AdminPanel({ darkMode = false }) {
             {subscribers.length} device{subscribers.length !== 1 ? "s" : ""} subscribed to push notifications
           </p>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {subscribers.length === 0 && (
-              <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No push subscribers yet</p>
-            )}
+            {subscribers.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No push subscribers yet</p>}
             {subscribers.map((sub, i) => (
               <div key={sub.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}`, gap:10 }}>
                 <div>
                   <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>Device {i + 1} 🔔</p>
-                  <p style={{ fontSize:11, color:t.textMuted, margin:0, fontFamily:"monospace" }}>
-                    {sub.token ? sub.token.substring(0, 30) + "…" : "unknown"}
-                  </p>
-                  {sub.createdAt && (
-                    <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>
-                      added {sub.createdAt.toDate?.().toLocaleDateString() || ""}
-                    </p>
-                  )}
+                  <p style={{ fontSize:11, color:t.textMuted, margin:0, fontFamily:"monospace" }}>{sub.token ? sub.token.substring(0,30) + "…" : "unknown"}</p>
+                  {sub.createdAt && <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>added {sub.createdAt.toDate?.().toLocaleDateString() || ""}</p>}
                 </div>
                 <button onClick={() => deleteSubscriber(sub.id)} style={{ padding:"4px 12px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer", flexShrink:0 }}>remove</button>
               </div>
@@ -627,9 +753,7 @@ export default function AdminPanel({ darkMode = false }) {
         <div>
           <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Default categories (hangout, trip, sports) are built-in.</p>
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-            {categories.length === 0 && (
-              <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No custom categories yet</p>
-            )}
+            {categories.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No custom categories yet</p>}
             {categories.map(cat => (
               <div key={cat.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}` }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -641,9 +765,7 @@ export default function AdminPanel({ darkMode = false }) {
             ))}
           </div>
           {!addingCat ? (
-            <button onClick={() => setAddingCat(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>
-              + add new category
-            </button>
+            <button onClick={() => setAddingCat(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ add new category</button>
           ) : (
             <div style={{ background:t.formBg, borderRadius:12, padding:"1.25rem", border:"1px solid rgba(127,119,221,0.2)" }}>
               <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>category name</label>
@@ -665,7 +787,7 @@ export default function AdminPanel({ darkMode = false }) {
 
       {/* Modals */}
       {editingEvent && (
-        <EditEventModal event={editingEvent} onClose={() => setEditingEvent(null)} dm={dm} t={t} />
+        <EditEventModal event={editingEvent} contacts={contacts} onClose={() => setEditingEvent(null)} dm={dm} t={t} />
       )}
       {planningItem && (
         <PlanItModal item={planningItem} categories={categories} onClose={() => setPlanningItem(null)} dm={dm} t={t} />

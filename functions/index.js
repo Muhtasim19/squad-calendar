@@ -42,6 +42,22 @@ function sendSMS(phone, message) {
   });
 }
 
+// ── Helper: get contact phones by IDs ──
+async function getPhonesForContacts(contactIds) {
+  const phones = [];
+  for (const cid of contactIds) {
+    try {
+      const cdoc = await db.collection("contacts").doc(cid).get();
+      if (cdoc.exists && cdoc.data().phone) {
+        phones.push(cdoc.data().phone);
+      }
+    } catch (err) {
+      console.error(`Error fetching contact ${cid}:`, err);
+    }
+  }
+  return phones;
+}
+
 // ── 1. FCM push on event approval ──
 exports.notifyOnApproval = onDocumentUpdated("events/{eventId}", async (event) => {
   const before = event.data.before.data();
@@ -81,9 +97,9 @@ exports.sendDailyReminders = onSchedule({
   if (eventsSnap.empty) return null;
 
   for (const eventDoc of eventsSnap.docs) {
-    const ev        = eventDoc.data();
-    const rsvpsSnap = await db.collection("events").doc(eventDoc.id).collection("rsvps").get();
-    const tokens    = rsvpsSnap.docs.map(d => d.data().fcmToken).filter(Boolean);
+    const ev     = eventDoc.data();
+    const rsvps  = await db.collection("events").doc(eventDoc.id).collection("rsvps").get();
+    const tokens = rsvps.docs.map(d => d.data().fcmToken).filter(Boolean);
     if (tokens.length === 0) continue;
 
     try {
@@ -99,7 +115,7 @@ exports.sendDailyReminders = onSchedule({
   return null;
 });
 
-// ── 3. Daily SMS reminders via Textbelt (5PM ET) ──
+// ── 3. Daily SMS reminders (5PM ET) — only selected contacts ──
 exports.sendSmsReminders = onSchedule({
   schedule: "0 17 * * *",
   timeZone: "America/New_York",
@@ -108,7 +124,6 @@ exports.sendSmsReminders = onSchedule({
   tomorrow.setDate(tomorrow.getDate() + 1);
   const dateStr = tomorrow.toISOString().split("T")[0];
 
-  // Only events with SMS reminder toggled ON
   const eventsSnap = await db.collection("events")
     .where("status",      "==", "approved")
     .where("date",        "==", dateStr)
@@ -120,17 +135,17 @@ exports.sendSmsReminders = onSchedule({
     return null;
   }
 
-  // Get all squad contacts
-  const contactsSnap = await db.collection("contacts").get();
-  const phones = contactsSnap.docs.map(d => d.data().phone).filter(Boolean);
-
-  if (phones.length === 0) {
-    console.log("No contacts found — skipping SMS");
-    return null;
-  }
-
   for (const eventDoc of eventsSnap.docs) {
-    const ev = eventDoc.data();
+    const ev             = eventDoc.data();
+    const smsContactIds  = ev.smsContactIds || [];
+
+    if (smsContactIds.length === 0) {
+      console.log(`Skipping "${ev.title}" — no contacts selected`);
+      continue;
+    }
+
+    const phones = await getPhonesForContacts(smsContactIds);
+    if (phones.length === 0) continue;
 
     let msg = `📅 "${ev.title}" is tomorrow`;
     if (ev.time)     msg += ` at ${ev.time}`;
@@ -140,28 +155,24 @@ exports.sendSmsReminders = onSchedule({
     for (const phone of phones) {
       try {
         const result = await sendSMS(phone, msg);
-        if (result.success) {
-          console.log(`✅ SMS sent to ${phone} — quota left: ${result.quotaRemaining}`);
-        } else {
-          console.error(`❌ SMS failed to ${phone}:`, result.error);
-        }
-      } catch (err) {
-        console.error(`SMS error for ${phone}:`, err);
-      }
+        console.log(result.success
+          ? `✅ SMS → ${phone} (quota: ${result.quotaRemaining})`
+          : `❌ SMS failed → ${phone}: ${result.error}`
+        );
+      } catch (err) { console.error(`SMS error → ${phone}:`, err); }
     }
   }
   return null;
 });
 
-// ── 4. Custom announcement SMS ──
+// ── 4. Custom announcement SMS — selected contacts only ──
 exports.sendCustomSms = onCall(async (request) => {
-  const { message } = request.data;
-  if (!message) throw new Error("Message required");
+  const { message, contactIds } = request.data;
+  if (!message)                          throw new Error("Message required");
+  if (!contactIds || contactIds.length === 0) return { sent: 0, total: 0 };
 
-  const contactsSnap = await db.collection("contacts").get();
-  const phones = contactsSnap.docs.map(d => d.data().phone).filter(Boolean);
-
-  if (phones.length === 0) return { sent: 0 };
+  const phones = await getPhonesForContacts(contactIds);
+  if (phones.length === 0) return { sent: 0, total: contactIds.length };
 
   const fullMessage = `${message}\n${CALENDAR_LINK}`;
   let sent = 0;
@@ -171,13 +182,11 @@ exports.sendCustomSms = onCall(async (request) => {
       const result = await sendSMS(phone, fullMessage);
       if (result.success) {
         sent++;
-        console.log(`✅ Custom SMS to ${phone} — quota left: ${result.quotaRemaining}`);
+        console.log(`✅ Custom SMS → ${phone} (quota: ${result.quotaRemaining})`);
       } else {
-        console.error(`❌ Custom SMS failed to ${phone}:`, result.error);
+        console.error(`❌ Custom SMS failed → ${phone}: ${result.error}`);
       }
-    } catch (err) {
-      console.error(`Custom SMS error for ${phone}:`, err);
-    }
+    } catch (err) { console.error(`Custom SMS error → ${phone}:`, err); }
   }
 
   return { sent, total: phones.length };
