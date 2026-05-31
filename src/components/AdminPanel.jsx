@@ -6,6 +6,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "../firebase";
 import AdminCalendar from "./AdminCalendar";
+import LocationPicker from "./LocationPicker";
 
 const PALETTE = [
   { bg:"#CECBF6", color:"#3C3489", label:"purple" },
@@ -112,7 +113,11 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
   const [title,         setTitle]         = useState(event.title       || "");
   const [date,          setDate]          = useState(event.date        || "");
   const [time,          setTime]          = useState(event.time        || "");
-  const [location,      setLocation]      = useState(event.location    || "");
+  const [locationObj, setLocationObj] = useState({
+    name: event.location || "",
+    lat:  event.lat      || null,
+    lng:  event.lng      || null,
+  });
   const [note,          setNote]          = useState(event.note        || "");
   const [smsReminder,   setSmsReminder]   = useState(event.smsReminder || false);
   const [smsContactIds, setSmsContactIds] = useState(event.smsContactIds || []);
@@ -131,8 +136,11 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
     setSaving(true);
     try {
       await updateDoc(doc(db,"events",event.id), {
-        title, date, time, location, note,
-        smsReminder: finalSms, smsContactIds: finalIds,
+        title, date, time,
+        location: locationObj.name,
+        lat:      locationObj.lat,
+        lng:      locationObj.lng,
+        note, smsReminder, smsContactIds,
       });
       onClose();
     } catch (err) { alert("Save failed: " + err.message); }
@@ -164,7 +172,9 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
         </div>
 
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>location</label>
-        <input value={location} onChange={e=>setLocation(e.target.value)} style={{ marginBottom:12 }} />
+        <div style={{ marginBottom:12 }}>
+          <LocationPicker value={locationObj} onChange={setLocationObj} />
+        </div>
 
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>notes</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ resize:"vertical", height:64, marginBottom:14 }} />

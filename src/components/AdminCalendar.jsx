@@ -4,6 +4,7 @@ import {
   updateDoc, deleteDoc, addDoc, serverTimestamp
 } from "firebase/firestore";
 import { db } from "../firebase";
+import LocationPicker from "./LocationPicker";
 
 const MONTHS       = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -38,7 +39,7 @@ function AddEventModal({ onClose, dm }) {
   const [title,      setTitle]      = useState("");
   const [date,       setDate]       = useState("");
   const [time,       setTime]       = useState("");
-  const [location,   setLocation]   = useState("");
+  const [location, setLocation]     = useState({ name:"", lat:null, lng:null });
   const [category,   setCategory]   = useState("hangout");
   const [note,       setNote]       = useState("");
   const [saving,     setSaving]     = useState(false);
@@ -69,9 +70,11 @@ function AddEventModal({ onClose, dm }) {
     try {
       await addDoc(collection(db, "events"), {
         title: title.trim(), date, time,
-        location: location.trim(), type: category,
-        note: note.trim(), status: "approved",
-        createdAt: serverTimestamp(),
+        location: location.name,
+        lat:      location.lat,
+        lng:      location.lng,
+        type: category, note: note.trim(),
+        status: "approved", createdAt: serverTimestamp(),
       });
       await addDoc(collection(db, "notifications"), {
         message: `"${title.trim()}" has been added! 🎉`,
@@ -121,8 +124,9 @@ function AddEventModal({ onClose, dm }) {
         </div>
 
         <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>location (optional)</label>
-        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="park, venue, address…" style={{ marginBottom:14 }} />
-
+        <div style={{ marginBottom:14 }}>
+          <LocationPicker value={location} onChange={setLocation} />
+        </div>
         <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>notes (optional)</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="anything the squad should know…" style={{ height:64, resize:"vertical", marginBottom:20 }} />
 
@@ -176,7 +180,11 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
   const [title,    setTitle]    = useState(event.title    || "");
   const [date,     setDate]     = useState(event.date     || "");
   const [time,     setTime]     = useState(event.time     || "");
-  const [location, setLocation] = useState(event.location || "");
+  const [locationObj, setLocationObj] = useState({
+    name: event.location || "",
+    lat:  event.lat      || null,
+    lng:  event.lng      || null,
+  });
   const [note,     setNote]     = useState(event.note     || "");
   const [saving,   setSaving]   = useState(false);
 
@@ -193,7 +201,16 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
 
   async function handleSave() {
     setSaving(true);
-    try { await onSave(event.id, { title, date, time, location, note }); setEditing(false); }
+    try { 
+      await onSave(event.id, {
+        title, date, time,
+        location: locationObj.name,
+        lat:      locationObj.lat,
+        lng:      locationObj.lng,
+        note,
+      });
+      etEditing(false); 
+    }
     finally { setSaving(false); }
   }
 
@@ -227,7 +244,9 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
               </div>
             </div>
             <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>location</label>
-            <input value={location} onChange={e=>setLocation(e.target.value)} style={{ marginBottom:12 }} />
+            <div style={{ marginBottom:12 }}>
+              <LocationPicker value={locationObj} onChange={setLocationObj} />
+            </div>
             <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>notes</label>
             <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ height:60, resize:"vertical", marginBottom:16 }} />
             <div style={{ display:"flex", gap:8 }}>
