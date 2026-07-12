@@ -51,7 +51,7 @@ export default function EventDetail({ event, onClose }) {
       setNameInput(savedName);
       setPhoneInput(savedPhone);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [showRsvpForm]);
 
   function getColor(type) {
