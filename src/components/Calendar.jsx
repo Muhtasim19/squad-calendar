@@ -57,7 +57,7 @@ function MiniMonth({ year, month, events, darkMode, today, onClick }) {
         ))}
         {cells.map((cell, i) => {
           const key  = cell.current ? `${year}-${String(month+1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}` : null;
-          const hasE = key && events.some(e => e.date === key);
+          const hasE = key && events.some(e => key >= e.date && key <= (e.endDate || e.date));
           const isTod = cell.current && isCurMonth && cell.day === today.getDate();
           return (
             <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:"center", height:18 }}>
@@ -123,8 +123,13 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
         && date.getFullYear() === today.getFullYear();
   }
 
+  // Multi-day aware: event shows on every day of its span
   function eventsForDate(date) {
-    return events.filter(e => e.date === dateKey(date));
+    const key = dateKey(date);
+    return events.filter(e => {
+      const end = e.endDate || e.date;
+      return key >= e.date && key <= end;
+    });
   }
 
   function getWeekStart(date) {
@@ -204,7 +209,7 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
         </div>
       </div>
 
-      {/* ── Nav (hidden in day view — has its own) ── */}
+      {/* ── Nav ── */}
       {view !== "day" && (
         <div className="cal-nav" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
           <button onClick={() => navigate(-1)} style={{ width:36, height:36, borderRadius:"50%", border:`1px solid ${t.cellBorder}`, background:t.navBg, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", touchAction:"manipulation", color:t.text }}>‹</button>
@@ -306,8 +311,21 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
       {view === "day" && (() => {
         const weekDays  = getWeekDays(focusDate);
         const dayEvents = eventsForDate(focusDate);
-        const timedEvs  = dayEvents.filter(e => e.time);
-        const allDayEvs = dayEvents.filter(e => !e.time);
+        const focusKey  = dateKey(focusDate);
+
+        // Decide how each event appears on THIS day
+        function dayInfo(e) {
+          const end   = e.endDate || e.date;
+          const multi = end > e.date;
+          if (e.allDay || !e.time) return { section:"allday" };
+          if (!multi) return { section:"timed", startH: parseTimeHours(e.time), endH: e.endTime ? parseTimeHours(e.endTime) : null };
+          if (focusKey === e.date)           return { section:"timed", startH: parseTimeHours(e.time), endH: DAY_END };
+          if (focusKey === end && e.endTime) return { section:"timed", startH: DAY_START, endH: parseTimeHours(e.endTime) };
+          return { section:"allday" }; // middle days of a multi-day span
+        }
+
+        const timedEvs  = dayEvents.filter(e => dayInfo(e).section === "timed");
+        const allDayEvs = dayEvents.filter(e => dayInfo(e).section === "allday");
         const hours     = Array.from({ length: DAY_END - DAY_START + 1 }, (_, i) => i + DAY_START);
 
         return (
@@ -349,13 +367,15 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
                 <div style={{ fontSize:10, color:t.textMuted, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>all day</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                   {allDayEvs.map(ev => {
-                    const c = getCatColor(ev.type);
+                    const c     = getCatColor(ev.type);
+                    const multi = (ev.endDate || ev.date) > ev.date;
                     return (
                       <div key={ev.id}
                         onClick={() => onEventClick && onEventClick(ev)}
                         style={{ background:c.bg, color:c.color, borderRadius:8, padding:"6px 10px", fontSize:13, fontWeight:600, cursor:"pointer" }}
                       >
                         {ev.title}
+                        {multi && <span style={{ fontSize:11, opacity:0.7 }}> · multi-day</span>}
                         {ev.location && <span style={{ fontSize:11, opacity:0.7 }}> · {ev.location}</span>}
                       </div>
                     );
@@ -377,20 +397,22 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
                 </div>
               ))}
 
-              {/* Timed events on the grid */}
+              {/* Timed events — duration blocks */}
               {timedEvs.map(ev => {
-                const hrs = parseTimeHours(ev.time);
-                if (hrs === null || hrs < DAY_START || hrs > DAY_END) return null;
-                const top = (hrs - DAY_START) * HOUR_HEIGHT;
-                const c   = getCatColor(ev.type);
+                const info = dayInfo(ev);
+                if (info.startH === null || info.startH > DAY_END) return null;
+                const startH = Math.max(info.startH, DAY_START);
+                const top    = (startH - DAY_START) * HOUR_HEIGHT;
+                const height = info.endH ? Math.max((Math.min(info.endH, DAY_END) - startH) * HOUR_HEIGHT, 44) : 44;
+                const c      = getCatColor(ev.type);
                 return (
                   <div key={ev.id}
                     onClick={() => onEventClick && onEventClick(ev)}
-                    style={{ position:"absolute", top:`${top}px`, left:52, right:0, background:c.bg, color:c.color, borderRadius:10, padding:"8px 10px", cursor:"pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.12)", minHeight:44, zIndex:1, borderLeft:`3px solid ${c.color}` }}
+                    style={{ position:"absolute", top:`${top}px`, height:`${height}px`, left:52, right:0, background:c.bg, color:c.color, borderRadius:10, padding:"8px 10px", cursor:"pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.12)", zIndex:1, borderLeft:`3px solid ${c.color}`, overflow:"hidden" }}
                   >
                     <div style={{ fontWeight:700, fontSize:13 }}>{ev.title}</div>
                     <div style={{ fontSize:11, opacity:0.75, marginTop:2 }}>
-                      {ev.time}{ev.location ? ` · ${ev.location}` : ""}
+                      {ev.time}{ev.endTime ? `–${ev.endTime}` : ""}{ev.location ? ` · ${ev.location}` : ""}
                     </div>
                   </div>
                 );
@@ -410,7 +432,7 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
               })()}
             </div>
 
-            {/* Suggest a plan button — always visible at bottom */}
+            {/* Suggest a plan button */}
             <button
               onClick={() => onDayClick(dateKey(focusDate))}
               style={{ width:"100%", padding:"10px", borderRadius:12, border:`1.5px dashed ${t.cellBorder}`, background:"none", color:t.textMuted, fontSize:13, cursor:"pointer", marginTop:12 }}
@@ -422,7 +444,7 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
         );
       })()}
 
-      {/* ── Legend (hidden in year view) ── */}
+      {/* ── Legend ── */}
       {view !== "year" && (
         <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
           {allCats.map(cat => (

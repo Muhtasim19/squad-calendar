@@ -30,6 +30,14 @@ function getContactName(contact) {
   return `${first} ${last}`.trim() || "No name";
 }
 
+// Multi-day aware date display for event cards
+function formatEventDates(ev) {
+  const endD = ev.endDate && ev.endDate !== ev.date ? ev.endDate : null;
+  if (!endD) return ev.date;
+  const fmt = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  return `${fmt(ev.date)} – ${fmt(endD)}`;
+}
+
 function ContactChecklist({ contacts, selectedIds, onChange, dm, t }) {
   function toggle(id) {
     onChange(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -106,13 +114,16 @@ function RsvpList({ eventId }) {
   );
 }
 
-// ── Edit event modal ──
+// ── Edit event modal — multi-day aware ──
 function EditEventModal({ event, contacts, onClose, dm, t }) {
-  const [title,         setTitle]         = useState(event.title       || "");
-  const [date,          setDate]          = useState(event.date        || "");
-  const [time,          setTime]          = useState(event.time        || "");
+  const [title,         setTitle]         = useState(event.title   || "");
+  const [allDay,        setAllDay]        = useState(event.allDay  || false);
+  const [date,          setDate]          = useState(event.date    || "");
+  const [endDate,       setEndDate]       = useState(event.endDate && event.endDate !== event.date ? event.endDate : "");
+  const [time,          setTime]          = useState(event.time    || "");
+  const [endTime,       setEndTime]       = useState(event.endTime || "");
   const [locationObj,   setLocationObj]   = useState({ name: event.location || "", lat: event.lat || null, lng: event.lng || null });
-  const [note,          setNote]          = useState(event.note        || "");
+  const [note,          setNote]          = useState(event.note    || "");
   const [smsReminder,   setSmsReminder]   = useState(event.smsReminder || false);
   const [smsContactIds, setSmsContactIds] = useState(event.smsContactIds || []);
   const [saving,        setSaving]        = useState(false);
@@ -124,12 +135,21 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
   }
 
   async function handleSave() {
-    if (!title || !date) return alert("Title and date are required!");
+    if (!title || !date) return alert("Title and start date are required!");
+    const finalEnd = endDate || date;
+    if (finalEnd < date) return alert("End date can't be before start date!");
+    if (!allDay && finalEnd === date && time && endTime && endTime <= time)
+      return alert("End time must be after start time!");
+
     const finalSms = smsReminder && smsContactIds.length > 0;
     setSaving(true);
     try {
       await updateDoc(doc(db,"events",event.id), {
-        title, date, time,
+        title, date,
+        endDate: finalEnd,
+        allDay,
+        time:    allDay ? "" : time,
+        endTime: allDay ? "" : endTime,
         location: locationObj.name,
         lat:      locationObj.lat,
         lng:      locationObj.lng,
@@ -155,16 +175,29 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>title</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} style={{ marginBottom:12 }} />
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-          <div>
-            <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>date</label>
-            <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
-          </div>
-          <div>
-            <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>time</label>
-            <input type="time" value={time} onChange={e=>setTime(e.target.value)} />
+        {/* All-day toggle */}
+        <div onClick={() => setAllDay(!allDay)}
+          style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, padding:"8px 12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", border:`1.5px solid ${t.border}`, cursor:"pointer" }}>
+          <span style={{ fontSize:13, fontWeight:600, color: allDay ? "#7F77DD" : t.text }}>all-day</span>
+          <div style={{ width:40, height:24, borderRadius:12, background: allDay ? "#7F77DD" : (dm ? "rgba(255,255,255,0.2)" : "#ddd"), position:"relative", transition:"background 0.2s" }}>
+            <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, left: allDay ? 18 : 2, transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
           </div>
         </div>
+
+        {/* Starts */}
+        <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>starts</label>
+        <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
+          <input type="date" value={date} onChange={e => { setDate(e.target.value); if (endDate && endDate < e.target.value) setEndDate(e.target.value); }} />
+          {!allDay && <input type="time" value={time} onChange={e=>setTime(e.target.value)} />}
+        </div>
+
+        {/* Ends */}
+        <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>ends</label>
+        <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:6 }}>
+          <input type="date" value={endDate} min={date} onChange={e=>setEndDate(e.target.value)} />
+          {!allDay && <input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} />}
+        </div>
+        <p style={{ fontSize:11, color:t.textMuted, margin:"0 0 12px" }}>leave end empty for a single-day event</p>
 
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>location</label>
         <div style={{ marginBottom:12 }}>
@@ -185,7 +218,7 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
             <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>
               {smsReminder
                 ? smsContactIds.length === 0 ? "⚠️ select at least one contact" : `texting ${smsContactIds.length} contact${smsContactIds.length !== 1 ? "s" : ""} at 5PM the day before`
-                : "texts selected contacts at 5PM the day before"
+                : "texts selected contacts at 5PM the day before it starts"
               }
             </p>
           </div>
@@ -209,12 +242,15 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
   );
 }
 
-// ── Plan It modal ──
+// ── Plan It modal — multi-day aware ──
 function PlanItModal({ item, categories, onClose, dm, t }) {
   const [noDate,   setNoDate]   = useState(false);
   const [title,    setTitle]    = useState(item.title       || "");
+  const [allDay,   setAllDay]   = useState(false);
   const [date,     setDate]     = useState("");
+  const [endDate,  setEndDate]  = useState("");
   const [time,     setTime]     = useState("");
+  const [endTime,  setEndTime]  = useState("");
   const [location, setLocation] = useState(item.location    || "");
   const [category, setCategory] = useState("hangout");
   const [note,     setNote]     = useState(item.description || "");
@@ -228,7 +264,12 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
   ];
 
   async function handleSubmit() {
-    if (!noDate && !date) return alert("Please add a date!");
+    if (!noDate && !date) return alert("Please add a start date!");
+    const finalEnd = endDate || date;
+    if (!noDate && finalEnd < date) return alert("End date can't be before start date!");
+    if (!noDate && !allDay && finalEnd === date && time && endTime && endTime <= time)
+      return alert("End time must be after start time!");
+
     setSaving(true);
     try {
       if (noDate) {
@@ -238,7 +279,12 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
         });
       } else {
         await addDoc(collection(db,"events"), {
-          title:title.trim(), date, time, location:location.trim(),
+          title:title.trim(), date,
+          endDate: finalEnd,
+          allDay,
+          time:    allDay ? "" : time,
+          endTime: allDay ? "" : endTime,
+          location:location.trim(),
           type:category, note:note.trim(),
           status:"approved", createdAt:serverTimestamp(),
         });
@@ -278,16 +324,30 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
 
         {!noDate && (
           <>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-              <div>
-                <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>date</label>
-                <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
-              </div>
-              <div>
-                <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>time (optional)</label>
-                <input type="time" value={time} onChange={e=>setTime(e.target.value)} />
+            {/* All-day toggle */}
+            <div onClick={() => setAllDay(!allDay)}
+              style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, padding:"8px 12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", border:`1.5px solid ${t.border}`, cursor:"pointer" }}>
+              <span style={{ fontSize:13, fontWeight:600, color: allDay ? "#7F77DD" : t.text }}>all-day</span>
+              <div style={{ width:40, height:24, borderRadius:12, background: allDay ? "#7F77DD" : (dm ? "rgba(255,255,255,0.2)" : "#ddd"), position:"relative", transition:"background 0.2s" }}>
+                <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, left: allDay ? 18 : 2, transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
               </div>
             </div>
+
+            {/* Starts */}
+            <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>starts</label>
+            <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
+              <input type="date" value={date} onChange={e => { setDate(e.target.value); if (endDate && endDate < e.target.value) setEndDate(e.target.value); }} />
+              {!allDay && <input type="time" value={time} onChange={e=>setTime(e.target.value)} />}
+            </div>
+
+            {/* Ends */}
+            <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>ends</label>
+            <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:6 }}>
+              <input type="date" value={endDate} min={date} onChange={e=>setEndDate(e.target.value)} />
+              {!allDay && <input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} />}
+            </div>
+            <p style={{ fontSize:11, color:t.textMuted, margin:"0 0 12px" }}>leave end empty for a single-day event</p>
+
             <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:6 }}>category</label>
             <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
               {cats.map(c => (
@@ -348,7 +408,10 @@ function ApproveModal({ event, contacts, onClose, onApprove, dm, t }) {
 
         <div style={{ background: dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", borderRadius:12, padding:"12px 14px", marginBottom:16 }}>
           <p style={{ fontWeight:700, fontSize:15, color:t.text, margin:"0 0 4px" }}>{event.title}</p>
-          <p style={{ fontSize:13, color:t.textSec, margin:0 }}>📅 {event.date}{event.time ? ` at ${event.time}` : ""}</p>
+          <p style={{ fontSize:13, color:t.textSec, margin:0 }}>
+            📅 {formatEventDates(event)}
+            {event.allDay ? " · all-day" : event.time ? ` at ${event.time}${event.endTime ? `–${event.endTime}` : ""}` : ""}
+          </p>
           {event.location && <p style={{ fontSize:13, color:t.textSec, margin:"2px 0 0" }}>📍 {event.location}</p>}
         </div>
 
@@ -363,7 +426,7 @@ function ApproveModal({ event, contacts, onClose, onApprove, dm, t }) {
             <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>
               {smsReminder
                 ? smsContactIds.length === 0 ? "⚠️ select at least one contact" : `texting ${smsContactIds.length} contact${smsContactIds.length !== 1 ? "s" : ""} at 5PM the day before`
-                : "texts selected contacts at 5PM the day before"
+                : "texts selected contacts at 5PM the day before it starts"
               }
             </p>
           </div>
@@ -418,7 +481,7 @@ export default function AdminPanel({ darkMode = false }) {
   const [newColor,             setNewColor]             = useState(PALETTE[0]);
   const [addingCat,            setAddingCat]            = useState(false);
   const [editingEvent,         setEditingEvent]         = useState(null);
-  const [approvingEvent,       setApprovingEvent]       = useState(null); // ← NEW
+  const [approvingEvent,       setApprovingEvent]       = useState(null);
   const [expandedRsvps,        setExpandedRsvps]        = useState(null);
   const [addingRsvpTo,         setAddingRsvpTo]         = useState(null);
   const [manualName,           setManualName]           = useState("");
@@ -452,7 +515,6 @@ export default function AdminPanel({ darkMode = false }) {
     return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); };
   }, []);
 
-  // ← UPDATED: accepts smsSettings
   async function approve(id, smsSettings = {}) {
     const ev = pending.find(e => e.id === id);
     await updateDoc(doc(db,"events",id), {
@@ -543,11 +605,13 @@ export default function AdminPanel({ darkMode = false }) {
 
   const todayStr = new Date().toISOString().split("T")[0];
 
+  // Multi-day aware: past only after END date
   const displayEvents = tab === "pending"
     ? pending
     : approved.filter(ev => {
-        if (eventTimeFilter === "upcoming") return !ev.date || ev.date >= todayStr;
-        if (eventTimeFilter === "past")     return ev.date < todayStr;
+        const evEnd = ev.endDate || ev.date;
+        if (eventTimeFilter === "upcoming") return !ev.date || evEnd >= todayStr;
+        if (eventTimeFilter === "past")     return evEnd < todayStr;
         return true;
       });
 
@@ -609,7 +673,7 @@ export default function AdminPanel({ darkMode = false }) {
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {displayEvents.map(ev => {
               const c = getCatColor(ev.type), isExpanded = expandedRsvps === ev.id;
-              const isPast = ev.date && ev.date < todayStr;
+              const isPast = ev.date && (ev.endDate || ev.date) < todayStr;
               return (
                 <div key={ev.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"1rem 1.25rem", backdropFilter:"blur(8px)", opacity: isPast && tab==="approved" ? 0.8 : 1 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
@@ -628,7 +692,10 @@ export default function AdminPanel({ darkMode = false }) {
                         )}
                       </div>
                       <div style={{ fontSize:13, color:t.textSec, display:"flex", flexDirection:"column", gap:3 }}>
-                        <span>📅 {ev.date}{ev.time ? ` at ${ev.time}` : ""}</span>
+                        <span>
+                          📅 {formatEventDates(ev)}
+                          {ev.allDay ? " · all-day" : ev.time ? ` at ${ev.time}${ev.endTime ? `–${ev.endTime}` : ""}` : ""}
+                        </span>
                         {ev.location && <span>📍 {ev.location}</span>}
                         {ev.note     && <span>📝 {ev.note}</span>}
                       </div>
@@ -636,7 +703,6 @@ export default function AdminPanel({ darkMode = false }) {
                     <div style={{ display:"flex", gap:6, flexShrink:0, flexWrap:"wrap", justifyContent:"flex-end" }}>
                       {tab === "pending" ? (
                         <>
-                          {/* ← UPDATED: opens ApproveModal */}
                           <button onClick={() => setApprovingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"#1D9E75", color:"#fff", border:"none", fontSize:13, fontWeight:600, cursor:"pointer" }}>✓ approve</button>
                           <button onClick={() => reject(ev.id)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:13, cursor:"pointer" }}>✕ reject</button>
                         </>
@@ -903,7 +969,6 @@ export default function AdminPanel({ darkMode = false }) {
       {planningItem && (
         <PlanItModal item={planningItem} categories={categories} onClose={() => setPlanningItem(null)} dm={dm} t={t} />
       )}
-      {/* ← NEW: Approve modal */}
       {approvingEvent && (
         <ApproveModal
           event={approvingEvent}

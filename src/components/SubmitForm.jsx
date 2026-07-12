@@ -12,8 +12,11 @@ const DEFAULTS = [
 export default function SubmitForm({ defaultDate, categories, onClose }) {
   const [isIdea,     setIsIdea]     = useState(false);
   const [title,      setTitle]      = useState("");
+  const [allDay,     setAllDay]     = useState(false);
   const [date,       setDate]       = useState(defaultDate || "");
+  const [endDate,    setEndDate]    = useState("");
   const [time,       setTime]       = useState("");
+  const [endTime,    setEndTime]    = useState("");
   const [location,   setLocation]   = useState({ name:"", lat:null, lng:null });
   const [type,       setType]       = useState("hangout");
   const [customType, setCustomType] = useState("");
@@ -26,41 +29,40 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
 
   async function handleSubmit() {
     if (!title.trim()) return alert("Please add a title!");
-    if (!isIdea && !date) return alert("Please add a date or toggle 'no date yet'.");
+    if (!isIdea && !date) return alert("Please add a start date or toggle 'no date yet'.");
+
+    const finalEnd = endDate || date;
+    if (!isIdea && finalEnd < date) return alert("End date can't be before start date!");
+    if (!isIdea && !allDay && finalEnd === date && time && endTime && endTime <= time)
+      return alert("End time must be after start time!");
+
     setSubmitting(true);
     try {
       if (isIdea) {
         await addDoc(collection(db, "board"), {
-          type:        "idea",
-          title:       title.trim(),
-          description: note.trim(),
-          pinned:      false,
-          createdAt:   serverTimestamp(),
+          type:"idea", title:title.trim(), description:note.trim(),
+          pinned:false, createdAt:serverTimestamp(),
         });
       } else {
         await addDoc(collection(db, "events"), {
-          title, date, time,
+          title, date,
+          endDate: finalEnd,
+          allDay,
+          time:    allDay ? "" : time,
+          endTime: allDay ? "" : endTime,
           location: location.name,
-          lat:      location.lat,
-          lng:      location.lng,
-          type:     finalType,
-          note,
-          status:   "pending",
-          createdAt: serverTimestamp(),
+          lat: location.lat, lng: location.lng,
+          type: finalType, note,
+          status:"pending", createdAt:serverTimestamp(),
         });
         await addDoc(collection(db, "notifications"), {
-          message:    `New plan suggested: "${title}" 📋`,
-          type:       "new_plan",
-          eventTitle: title,
-          createdAt:  serverTimestamp(),
+          message:`New plan suggested: "${title}" 📋`,
+          type:"new_plan", eventTitle:title, createdAt:serverTimestamp(),
         });
       }
       setDone(true);
-    } catch (err) {
-      alert("Something went wrong: " + err.message);
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (err) { alert("Something went wrong: " + err.message); }
+    finally { setSubmitting(false); }
   }
 
   return (
@@ -82,10 +84,8 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
             <h2 style={{ fontSize:18, fontWeight:700, marginBottom:"1rem", color:"#3C3489" }}>suggest a plan</h2>
 
             {/* No date toggle */}
-            <div
-              onClick={() => setIsIdea(!isIdea)}
-              style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14, padding:"10px 12px", borderRadius:10, background: isIdea ? "rgba(127,119,221,0.08)" : "rgba(0,0,0,0.03)", border:`1.5px solid ${isIdea ? "rgba(127,119,221,0.3)" : "rgba(0,0,0,0.06)"}`, cursor:"pointer", transition:"all 0.15s" }}
-            >
+            <div onClick={() => setIsIdea(!isIdea)}
+              style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14, padding:"10px 12px", borderRadius:10, background: isIdea ? "rgba(127,119,221,0.08)" : "rgba(0,0,0,0.03)", border:`1.5px solid ${isIdea ? "rgba(127,119,221,0.3)" : "rgba(0,0,0,0.06)"}`, cursor:"pointer", transition:"all 0.15s" }}>
               <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${isIdea ? "#7F77DD" : "#ddd"}`, background: isIdea ? "#7F77DD" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
                 {isIdea && <span style={{ color:"#fff", fontSize:12 }}>✓</span>}
               </div>
@@ -100,16 +100,29 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
 
             {!isIdea && (
               <>
-                <div className="date-time-row" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-                  <div>
-                    <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>date</label>
-                    <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>time (optional)</label>
-                    <input type="time" value={time} onChange={e=>setTime(e.target.value)} />
+                {/* All-day toggle */}
+                <div onClick={() => setAllDay(!allDay)}
+                  style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, padding:"8px 12px", borderRadius:10, background:"rgba(0,0,0,0.03)", border:"1.5px solid rgba(0,0,0,0.06)", cursor:"pointer" }}>
+                  <span style={{ fontSize:13, fontWeight:600, color: allDay ? "#3C3489" : "#666" }}>all-day</span>
+                  <div style={{ width:40, height:24, borderRadius:12, background: allDay ? "#7F77DD" : "#ddd", position:"relative", transition:"background 0.2s" }}>
+                    <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, left: allDay ? 18 : 2, transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
                   </div>
                 </div>
+
+                {/* Starts */}
+                <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>starts</label>
+                <div className="date-time-row" style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
+                  <input type="date" value={date} onChange={e => { setDate(e.target.value); if (endDate && endDate < e.target.value) setEndDate(e.target.value); }} />
+                  {!allDay && <input type="time" value={time} onChange={e=>setTime(e.target.value)} />}
+                </div>
+
+                {/* Ends */}
+                <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>ends</label>
+                <div className="date-time-row" style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
+                  <input type="date" value={endDate} min={date} onChange={e=>setEndDate(e.target.value)} placeholder={date} />
+                  {!allDay && <input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} />}
+                </div>
+                <p style={{ fontSize:11, color:"#ccc", margin:"-6px 0 12px" }}>leave end empty for a single-day plan</p>
 
                 <label style={{ fontSize:12, color:"#999", display:"block", marginBottom:4 }}>location (optional)</label>
                 <div style={{ marginBottom:12 }}>

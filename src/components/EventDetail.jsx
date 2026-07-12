@@ -51,6 +51,7 @@ export default function EventDetail({ event, onClose }) {
       setNameInput(savedName);
       setPhoneInput(savedPhone);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showRsvpForm]);
 
   function getColor(type) {
@@ -62,7 +63,6 @@ export default function EventDetail({ event, onClose }) {
     const formattedPhone = phone ? formatPhone(phone) : null;
     const fcmToken       = localStorage.getItem("squadcal_push") || null;
 
-    // ✅ Save ref from first addDoc — no second addDoc needed
     const rsvpRef = await addDoc(collection(db, "events", event.id, "rsvps"), {
       name,
       phone:     formattedPhone,
@@ -81,7 +81,7 @@ export default function EventDetail({ event, onClose }) {
     localStorage.setItem("squadcal_name", name);
     if (formattedPhone) localStorage.setItem("squadcal_phone", formattedPhone);
     const ids = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
-    ids[event.id] = rsvpRef.id; // ✅ Use ref from above, not a new empty addDoc
+    ids[event.id] = rsvpRef.id;
     localStorage.setItem("squadcal_rsvps", JSON.stringify(ids));
     setShowRsvpForm(false);
   }
@@ -96,9 +96,14 @@ export default function EventDetail({ event, onClose }) {
 
   const isGoing = !!myRsvpId && rsvps.some(r => r.id === myRsvpId);
   const c       = getColor(event.type);
-  const dateStr = new Date(event.date + "T12:00:00").toLocaleDateString("en-US", {
-    weekday:"long", month:"long", day:"numeric"
-  });
+
+  // ── Multi-day aware date display ──
+  const fmt  = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" });
+  const endD = event.endDate && event.endDate !== event.date ? event.endDate : null;
+  const dateStr = endD
+    ? `${fmt(event.date)} – ${fmt(endD)}`
+    : new Date(event.date + "T12:00:00").toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" });
+
   const mapUrl = event.lat && event.lng
     ? `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+7F77DD(${event.lng},${event.lat})/${event.lng},${event.lat},14,0/400x160?access_token=${TOKEN}`
     : null;
@@ -125,7 +130,12 @@ export default function EventDetail({ event, onClose }) {
 
         {/* Details */}
         <div style={{ display:"flex", flexDirection:"column", gap:8, fontSize:14, color:"#666", marginBottom:16 }}>
-          <span>📅 {dateStr}{event.time ? ` at ${event.time}` : ""}</span>
+          <span>
+            📅 {dateStr}
+            {event.allDay
+              ? " · all-day"
+              : event.time ? ` at ${event.time}${event.endTime ? `–${event.endTime}` : ""}` : ""}
+          </span>
           {event.location && <span>📍 {event.location}</span>}
           {event.note     && <span>📝 {event.note}</span>}
         </div>

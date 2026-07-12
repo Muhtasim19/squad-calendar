@@ -33,13 +33,19 @@ function parseTimeHours(t) {
   const [h, m] = t.split(":").map(Number);
   return h + m / 60;
 }
+function spansDay(e, key) {
+  return key >= e.date && key <= (e.endDate || e.date);
+}
 
 // ── Add Event Modal ──
 function AddEventModal({ onClose, dm }) {
   const [title,      setTitle]      = useState("");
+  const [allDay,     setAllDay]     = useState(false);
   const [date,       setDate]       = useState("");
+  const [endDate,    setEndDate]    = useState("");
   const [time,       setTime]       = useState("");
-  const [location, setLocation]     = useState({ name:"", lat:null, lng:null });
+  const [endTime,    setEndTime]    = useState("");
+  const [location,   setLocation]   = useState({ name:"", lat:null, lng:null });
   const [category,   setCategory]   = useState("hangout");
   const [note,       setNote]       = useState("");
   const [saving,     setSaving]     = useState(false);
@@ -65,16 +71,27 @@ function AddEventModal({ onClose, dm }) {
 
   async function handleSave() {
     if (!title.trim()) return alert("Title is required!");
-    if (!date)         return alert("Date is required!");
+    if (!date)         return alert("Start date is required!");
+    const finalEnd = endDate || date;
+    if (finalEnd < date) return alert("End date can't be before start date!");
+    if (!allDay && finalEnd === date && time && endTime && endTime <= time)
+      return alert("End time must be after start time!");
+
     setSaving(true);
     try {
       await addDoc(collection(db, "events"), {
-        title: title.trim(), date, time,
+        title: title.trim(),
+        date,
+        endDate: finalEnd,
+        allDay,
+        time:    allDay ? "" : time,
+        endTime: allDay ? "" : endTime,
         location: location.name,
         lat:      location.lat,
         lng:      location.lng,
         type: category, note: note.trim(),
-        status: "approved", createdAt: serverTimestamp(),
+        status: "approved",
+        createdAt: serverTimestamp(),
       });
       await addDoc(collection(db, "notifications"), {
         message: `"${title.trim()}" has been added! 🎉`,
@@ -99,16 +116,29 @@ function AddEventModal({ onClose, dm }) {
         <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>title *</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Beach day 🏖" style={{ marginBottom:14 }} />
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
-          <div>
-            <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>date *</label>
-            <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
-          </div>
-          <div>
-            <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>time (optional)</label>
-            <input type="time" value={time} onChange={e=>setTime(e.target.value)} />
+        {/* All-day toggle */}
+        <div onClick={() => setAllDay(!allDay)}
+          style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, padding:"8px 12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", border:`1.5px solid ${borderColor}`, cursor:"pointer" }}>
+          <span style={{ fontSize:13, fontWeight:600, color: allDay ? "#7F77DD" : textColor }}>all-day</span>
+          <div style={{ width:40, height:24, borderRadius:12, background: allDay ? "#7F77DD" : (dm ? "rgba(255,255,255,0.2)" : "#ddd"), position:"relative", transition:"background 0.2s" }}>
+            <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, left: allDay ? 18 : 2, transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
           </div>
         </div>
+
+        {/* Starts */}
+        <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>starts *</label>
+        <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
+          <input type="date" value={date} onChange={e => { setDate(e.target.value); if (endDate && endDate < e.target.value) setEndDate(e.target.value); }} />
+          {!allDay && <input type="time" value={time} onChange={e=>setTime(e.target.value)} />}
+        </div>
+
+        {/* Ends */}
+        <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>ends</label>
+        <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:6 }}>
+          <input type="date" value={endDate} min={date} onChange={e=>setEndDate(e.target.value)} />
+          {!allDay && <input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} />}
+        </div>
+        <p style={{ fontSize:11, color:labelColor, margin:"0 0 14px" }}>leave end empty for a single-day event</p>
 
         <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:6 }}>category</label>
         <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
@@ -127,6 +157,7 @@ function AddEventModal({ onClose, dm }) {
         <div style={{ marginBottom:14 }}>
           <LocationPicker value={location} onChange={setLocation} />
         </div>
+
         <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>notes (optional)</label>
         <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="anything the squad should know…" style={{ height:64, resize:"vertical", marginBottom:20 }} />
 
@@ -176,17 +207,16 @@ function RsvpList({ eventId }) {
 
 // ── Admin event modal ──
 function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRemove, onSave, dm }) {
-  const [editing,  setEditing]  = useState(false);
-  const [title,    setTitle]    = useState(event.title    || "");
-  const [date,     setDate]     = useState(event.date     || "");
-  const [time,     setTime]     = useState(event.time     || "");
-  const [locationObj, setLocationObj] = useState({
-    name: event.location || "",
-    lat:  event.lat      || null,
-    lng:  event.lng      || null,
-  });
-  const [note,     setNote]     = useState(event.note     || "");
-  const [saving,   setSaving]   = useState(false);
+  const [editing,     setEditing]     = useState(false);
+  const [title,       setTitle]       = useState(event.title   || "");
+  const [allDay,      setAllDay]      = useState(event.allDay  || false);
+  const [date,        setDate]        = useState(event.date    || "");
+  const [endDate,     setEndDate]     = useState(event.endDate && event.endDate !== event.date ? event.endDate : "");
+  const [time,        setTime]        = useState(event.time    || "");
+  const [endTime,     setEndTime]     = useState(event.endTime || "");
+  const [locationObj, setLocationObj] = useState({ name: event.location || "", lat: event.lat || null, lng: event.lng || null });
+  const [note,        setNote]        = useState(event.note    || "");
+  const [saving,      setSaving]      = useState(false);
 
   const isPending   = event.status === "pending";
   const cat         = categories.find(c => c.name === event.type);
@@ -195,23 +225,37 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
   const borderColor = dm ? "rgba(255,255,255,0.12)" : "#ddd";
   const textColor   = dm ? "#f0f0f0" : "#333";
 
+  // Multi-day aware date string
+  const endD  = event.endDate && event.endDate !== event.date ? event.endDate : null;
+  const fmt   = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric" });
   const dateStr = event.date
-    ? new Date(event.date + "T12:00:00").toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" })
+    ? endD
+      ? `${fmt(event.date)} – ${fmt(endD)}${event.allDay ? " (all-day)" : ""}`
+      : `${new Date(event.date + "T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}${event.allDay ? " (all-day)" : ""}`
     : "";
 
   async function handleSave() {
+    if (!title || !date) return alert("Title and start date are required!");
+    const finalEnd = endDate || date;
+    if (finalEnd < date) return alert("End date can't be before start date!");
+    if (!allDay && finalEnd === date && time && endTime && endTime <= time)
+      return alert("End time must be after start time!");
+
     setSaving(true);
-    try { 
+    try {
       await onSave(event.id, {
-        title, date, time,
+        title, date,
+        endDate: finalEnd,
+        allDay,
+        time:    allDay ? "" : time,
+        endTime: allDay ? "" : endTime,
         location: locationObj.name,
         lat:      locationObj.lat,
         lng:      locationObj.lng,
         note,
       });
-      etEditing(false); 
-    }
-    finally { setSaving(false); }
+      setEditing(false);
+    } finally { setSaving(false); }
   }
 
   return (
@@ -233,22 +277,38 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
           <>
             <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>title</label>
             <input value={title} onChange={e=>setTitle(e.target.value)} style={{ marginBottom:12 }} />
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-              <div>
-                <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>date</label>
-                <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
-              </div>
-              <div>
-                <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>time</label>
-                <input type="time" value={time} onChange={e=>setTime(e.target.value)} />
+
+            {/* All-day toggle */}
+            <div onClick={() => setAllDay(!allDay)}
+              style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, padding:"8px 12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", border:`1.5px solid ${borderColor}`, cursor:"pointer" }}>
+              <span style={{ fontSize:13, fontWeight:600, color: allDay ? "#7F77DD" : textColor }}>all-day</span>
+              <div style={{ width:40, height:24, borderRadius:12, background: allDay ? "#7F77DD" : (dm ? "rgba(255,255,255,0.2)" : "#ddd"), position:"relative", transition:"background 0.2s" }}>
+                <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, left: allDay ? 18 : 2, transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
               </div>
             </div>
+
+            {/* Starts */}
+            <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>starts</label>
+            <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
+              <input type="date" value={date} onChange={e => { setDate(e.target.value); if (endDate && endDate < e.target.value) setEndDate(e.target.value); }} />
+              {!allDay && <input type="time" value={time} onChange={e=>setTime(e.target.value)} />}
+            </div>
+
+            {/* Ends */}
+            <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>ends</label>
+            <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
+              <input type="date" value={endDate} min={date} onChange={e=>setEndDate(e.target.value)} />
+              {!allDay && <input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} />}
+            </div>
+
             <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>location</label>
             <div style={{ marginBottom:12 }}>
               <LocationPicker value={locationObj} onChange={setLocationObj} />
             </div>
+
             <label style={{ fontSize:12, color:labelColor, display:"block", marginBottom:4 }}>notes</label>
             <textarea value={note} onChange={e=>setNote(e.target.value)} style={{ height:60, resize:"vertical", marginBottom:16 }} />
+
             <div style={{ display:"flex", gap:8 }}>
               <button onClick={() => setEditing(false)} style={{ flex:1, padding:10, borderRadius:10, border:`1px solid ${borderColor}`, background:"none", cursor:"pointer", fontSize:13, color:textColor }}>cancel</button>
               <button onClick={handleSave} disabled={saving} style={{ flex:2, padding:10, borderRadius:10, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:saving?0.7:1 }}>
@@ -259,12 +319,17 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
         ) : (
           <>
             <div style={{ display:"flex", flexDirection:"column", gap:8, fontSize:14, color: dm ? "#aaa" : "#666", marginBottom:16 }}>
-              {dateStr        && <span>📅 {dateStr}{event.time ? ` at ${event.time}` : ""}</span>}
+              {dateStr && (
+                <span>
+                  📅 {dateStr}
+                  {!event.allDay && event.time ? ` at ${event.time}${event.endTime ? `–${event.endTime}` : ""}` : ""}
+                </span>
+              )}
               {event.location && <span>📍 {event.location}</span>}
               {event.note     && <span>📝 {event.note}</span>}
             </div>
 
-            {/* ── Map ── */}
+            {/* Map */}
             {event.lat && event.lng && (() => {
               const TOKEN  = process.env.REACT_APP_MAPBOX_TOKEN;
               const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+7F77DD(${event.lng},${event.lat})/${event.lng},${event.lat},14,0/400x160?access_token=${TOKEN}`;
@@ -274,6 +339,7 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
                 </div>
               );
             })()}
+
             <div style={{ borderTop:`1px solid ${dm ? "rgba(255,255,255,0.08)" : "#eee"}`, paddingTop:12, marginBottom:16 }}>
               <p style={{ fontSize:11, color:"#bbb", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>RSVPs</p>
               <RsvpList eventId={event.id} />
@@ -317,8 +383,8 @@ function MiniMonth({ year, month, events, today, onClick }) {
         {DAYS_MINI.map((d, i) => <div key={i} style={{ fontSize:7, color:"#bbb", textAlign:"center", fontWeight:700 }}>{d}</div>)}
         {cells.map((cell, i) => {
           const key     = cell.current ? `${year}-${String(month+1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}` : null;
-          const hasE    = key && events.some(e => e.date === key);
-          const hasPend = key && events.some(e => e.date === key && e.status === "pending");
+          const hasE    = key && events.some(e => spansDay(e, key));
+          const hasPend = key && events.some(e => spansDay(e, key) && e.status === "pending");
           const isTod   = cell.current && isCurMonth && cell.day === today.getDate();
           return (
             <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:"center", height:18 }}>
@@ -407,7 +473,11 @@ export default function AdminCalendar({ darkMode = false }) {
   function isToday(date) {
     return date.getDate()===today.getDate() && date.getMonth()===today.getMonth() && date.getFullYear()===today.getFullYear();
   }
-  function eventsForDate(date) { return filteredEvents.filter(e => e.date === dateKey(date)); }
+  // Multi-day aware
+  function eventsForDate(date) {
+    const key = dateKey(date);
+    return filteredEvents.filter(e => spansDay(e, key));
+  }
   function getWeekStart(date) { const d=new Date(date); d.setDate(d.getDate()-d.getDay()); return d; }
   function getWeekDays(date) {
     const start = getWeekStart(date);
@@ -519,7 +589,7 @@ export default function AdminCalendar({ darkMode = false }) {
       {view === "month" && (
         <>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", marginBottom:6 }}>
-            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+            {DAYS_SHORT.map(d => (
               <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:700, color:t.textMuted, padding:"4px 0", textTransform:"uppercase", letterSpacing:"0.06em" }}>{d}</div>
             ))}
           </div>
@@ -564,9 +634,24 @@ export default function AdminCalendar({ darkMode = false }) {
 
       {/* ── DAY ── */}
       {view === "day" && (() => {
-        const weekDays=getWeekDays(focusDate), dayEvents=eventsForDate(focusDate);
-        const timedEvs=dayEvents.filter(e=>e.time), allDayEvs=dayEvents.filter(e=>!e.time);
-        const hours=Array.from({length:DAY_END-DAY_START+1},(_,i)=>i+DAY_START);
+        const weekDays  = getWeekDays(focusDate);
+        const dayEvents = eventsForDate(focusDate);
+        const focusKey  = dateKey(focusDate);
+
+        function dayInfo(e) {
+          const end   = e.endDate || e.date;
+          const multi = end > e.date;
+          if (e.allDay || !e.time) return { section:"allday" };
+          if (!multi) return { section:"timed", startH: parseTimeHours(e.time), endH: e.endTime ? parseTimeHours(e.endTime) : null };
+          if (focusKey === e.date)           return { section:"timed", startH: parseTimeHours(e.time), endH: DAY_END };
+          if (focusKey === end && e.endTime) return { section:"timed", startH: DAY_START, endH: parseTimeHours(e.endTime) };
+          return { section:"allday" };
+        }
+
+        const timedEvs  = dayEvents.filter(e => dayInfo(e).section === "timed");
+        const allDayEvs = dayEvents.filter(e => dayInfo(e).section === "allday");
+        const hours     = Array.from({length:DAY_END-DAY_START+1},(_,i)=>i+DAY_START);
+
         return (
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:12 }}>
@@ -600,10 +685,12 @@ export default function AdminCalendar({ darkMode = false }) {
                 <div style={{ fontSize:10,color:t.textMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6 }}>all day</div>
                 {allDayEvs.map(ev => {
                   const c=getColor(ev);
+                  const multi=(ev.endDate||ev.date)>ev.date;
                   return (
                     <div key={ev.id} onClick={()=>setSelectedEvent(ev)}
                       style={{ background:c.bg,color:c.color,borderRadius:8,padding:"6px 10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:4,border:ev.status==="pending"?`1.5px dashed ${c.color}`:"none" }}>
                       {ev.status==="pending"?"⏳ ":""}{ev.title}
+                      {multi && <span style={{ fontSize:11, opacity:0.7 }}> · multi-day</span>}
                     </div>
                   );
                 })}
@@ -618,14 +705,19 @@ export default function AdminCalendar({ darkMode = false }) {
                 </div>
               ))}
               {timedEvs.map(ev => {
-                const hrs=parseTimeHours(ev.time);
-                if(hrs===null||hrs<DAY_START||hrs>DAY_END) return null;
-                const c=getColor(ev);
+                const info = dayInfo(ev);
+                if (info.startH === null || info.startH > DAY_END) return null;
+                const startH = Math.max(info.startH, DAY_START);
+                const top    = (startH - DAY_START) * HOUR_HEIGHT;
+                const height = info.endH ? Math.max((Math.min(info.endH, DAY_END) - startH) * HOUR_HEIGHT, 44) : 44;
+                const c = getColor(ev);
                 return (
                   <div key={ev.id} onClick={()=>setSelectedEvent(ev)}
-                    style={{ position:"absolute",top:`${(hrs-DAY_START)*HOUR_HEIGHT}px`,left:52,right:0,background:c.bg,color:c.color,borderRadius:10,padding:"8px 10px",cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.1)",minHeight:44,zIndex:1,borderLeft:`3px solid ${c.color}` }}>
+                    style={{ position:"absolute",top:`${top}px`,height:`${height}px`,left:52,right:0,background:c.bg,color:c.color,borderRadius:10,padding:"8px 10px",cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.1)",zIndex:1,borderLeft:`3px solid ${c.color}`,overflow:"hidden" }}>
                     <div style={{ fontWeight:700,fontSize:13 }}>{ev.status==="pending"?"⏳ ":""}{ev.title}</div>
-                    <div style={{ fontSize:11,opacity:0.75,marginTop:2 }}>{ev.time}{ev.location?` · ${ev.location}`:""}</div>
+                    <div style={{ fontSize:11,opacity:0.75,marginTop:2 }}>
+                      {ev.time}{ev.endTime?`–${ev.endTime}`:""}{ev.location?` · ${ev.location}`:""}
+                    </div>
                   </div>
                 );
               })}
