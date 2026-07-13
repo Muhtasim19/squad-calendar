@@ -114,6 +114,133 @@ function RsvpList({ eventId }) {
   );
 }
 
+// ── Manual RSVP adder — contacts checklist OR new person ──
+function ManualRsvpAdder({ eventId, contacts, onDone, dm, t }) {
+  const [mode,     setMode]     = useState("contacts");
+  const [selected, setSelected] = useState([]);
+  const [name,     setName]     = useState("");
+  const [phone,    setPhone]    = useState("");
+  const [rsvps,    setRsvps]    = useState([]);
+  const [saving,   setSaving]   = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db,"events",eventId,"rsvps"), snap =>
+      setRsvps(snap.docs.map(d => ({ id:d.id, ...d.data() })))
+    );
+    return () => unsub();
+  }, [eventId]);
+
+  // Contacts not already RSVP'd (matched by phone)
+  const rsvpPhones = rsvps.map(r => (r.phone || "").replace(/\D/g,"")).filter(Boolean);
+  const available  = contacts.filter(c => {
+    const digits = (c.phone || "").replace(/\D/g,"");
+    return !rsvpPhones.some(p => p.endsWith(digits.slice(-10)) && digits.length >= 10);
+  });
+
+  function toggle(id) {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  async function addSelected() {
+    if (selected.length === 0) return alert("Select at least one contact!");
+    setSaving(true);
+    try {
+      for (const cid of selected) {
+        const c = contacts.find(x => x.id === cid);
+        if (!c) continue;
+        await addDoc(collection(db,"events",eventId,"rsvps"), {
+          name: getContactName(c), phone: c.phone || null,
+          fcmToken: null, manual: true, timestamp: serverTimestamp(),
+        });
+      }
+      onDone();
+    } finally { setSaving(false); }
+  }
+
+  async function addNew() {
+    if (!name.trim()) return alert("Name is required!");
+    setSaving(true);
+    try {
+      await addDoc(collection(db,"events",eventId,"rsvps"), {
+        name: name.trim(), phone: phone.trim() || null,
+        fcmToken: null, manual: true, timestamp: serverTimestamp(),
+      });
+      onDone();
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div style={{ background: dm?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.02)", borderRadius:10, padding:"10px 12px", border:`1px solid ${t.border}` }}>
+
+      {/* Mode switcher */}
+      <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+        {[
+          { key:"contacts", label:"👥 from contacts" },
+          { key:"new",      label:"✏️ new person"    },
+        ].map(m => (
+          <button key={m.key} onClick={() => setMode(m.key)} style={{
+            flex:1, padding:"6px", borderRadius:8, fontSize:12, cursor:"pointer",
+            background: mode===m.key ? "#7F77DD" : "none",
+            color:      mode===m.key ? "#fff" : t.textSec,
+            border:     mode===m.key ? "none" : `1px solid ${t.border}`,
+            fontWeight: mode===m.key ? 700 : 400,
+          }}>{m.label}</button>
+        ))}
+      </div>
+
+      {mode === "contacts" ? (
+        <>
+          {available.length === 0 ? (
+            <p style={{ fontSize:12, color:t.textMuted, margin:"0 0 10px" }}>
+              {contacts.length === 0 ? "No contacts saved yet." : "All contacts are already RSVP'd 🎉"}
+            </p>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10, maxHeight:200, overflowY:"auto" }}>
+              {available.map(c => {
+                const sel = selected.includes(c.id);
+                return (
+                  <div key={c.id} onClick={() => toggle(c.id)}
+                    style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 10px", borderRadius:8, cursor:"pointer", background: sel ? "rgba(127,119,221,0.1)" : "transparent", border:`1px solid ${sel ? "rgba(127,119,221,0.35)" : t.border}` }}
+                  >
+                    <div style={{ width:16, height:16, borderRadius:4, border:`2px solid ${sel ? "#7F77DD" : t.border}`, background: sel ? "#7F77DD" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      {sel && <span style={{ color:"#fff", fontSize:10, fontWeight:700 }}>✓</span>}
+                    </div>
+                    <div>
+                      <p style={{ fontSize:12, fontWeight:600, color:t.text, margin:0 }}>{getContactName(c)}</p>
+                      <p style={{ fontSize:10, color:t.textMuted, margin:0 }}>{c.phone}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={onDone} style={{ flex:1, padding:"6px", borderRadius:8, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:12, color:t.text }}>cancel</button>
+            <button onClick={addSelected} disabled={saving || selected.length === 0}
+              style={{ flex:2, padding:"6px", borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:12, opacity:(saving || selected.length===0)?0.6:1 }}>
+              {saving ? "adding…" : `➕ add ${selected.length} ${selected.length === 1 ? "person" : "people"}`}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder="name *" />
+            <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="phone (optional)" />
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={onDone} style={{ flex:1, padding:"6px", borderRadius:8, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:12, color:t.text }}>cancel</button>
+            <button onClick={addNew} disabled={saving}
+              style={{ flex:2, padding:"6px", borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:12, opacity:saving?0.6:1 }}>
+              {saving ? "adding…" : "➕ add to RSVP"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Edit event modal — multi-day aware ──
 function EditEventModal({ event, contacts, onClose, dm, t }) {
   const [title,         setTitle]         = useState(event.title   || "");
@@ -476,8 +603,6 @@ export default function AdminPanel({ darkMode = false }) {
   const [approvingEvent,       setApprovingEvent]       = useState(null);
   const [expandedRsvps,        setExpandedRsvps]        = useState(null);
   const [addingRsvpTo,         setAddingRsvpTo]         = useState(null);
-  const [manualName,           setManualName]           = useState("");
-  const [manualPhone,          setManualPhone]          = useState("");
   const [addingBoard,          setAddingBoard]          = useState(false);
   const [boardType,            setBoardType]            = useState("announcement");
   const [boardTitle,           setBoardTitle]           = useState("");
@@ -525,15 +650,6 @@ export default function AdminPanel({ darkMode = false }) {
   const deleteCat       = id => deleteDoc(doc(db,"categories",id));
   const deleteBoardItem = id => deleteDoc(doc(db,"board",id));
   const deleteContact   = id => deleteDoc(doc(db,"contacts",id));
-
-  async function addManualRsvp(eventId) {
-    if (!manualName.trim()) return alert("Name is required!");
-    await addDoc(collection(db,"events",eventId,"rsvps"), {
-      name:manualName.trim(), phone:manualPhone.trim()||null,
-      fcmToken:null, manual:true, timestamp:serverTimestamp(),
-    });
-    setManualName(""); setManualPhone(""); setAddingRsvpTo(null);
-  }
 
   async function addCat() {
     if (!newName.trim()) return;
@@ -687,7 +803,7 @@ export default function AdminPanel({ darkMode = false }) {
                       <button onClick={() => setEditingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${dm?"rgba(127,119,221,0.5)":"#7F77DD"}`, color:"#7F77DD", fontSize:13, cursor:"pointer" }}>✏️ edit</button>
                       <button onClick={() => {
                         setExpandedRsvps(isExpanded ? null : ev.id);
-                        setAddingRsvpTo(null); setManualName(""); setManualPhone("");
+                        setAddingRsvpTo(null);
                       }} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textSec, fontSize:13, cursor:"pointer" }}>
                         {isExpanded ? "hide RSVPs" : "see RSVPs"}
                       </button>
@@ -700,20 +816,15 @@ export default function AdminPanel({ darkMode = false }) {
                       <RsvpList eventId={ev.id} />
                       <div style={{ marginTop:10 }}>
                         {addingRsvpTo === ev.id ? (
-                          <div style={{ background:dm?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.02)", borderRadius:10, padding:"10px 12px", border:`1px solid ${t.border}` }}>
-                            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-                              <input value={manualName} onChange={e=>setManualName(e.target.value)} placeholder="name *" />
-                              <input type="tel" value={manualPhone} onChange={e=>setManualPhone(e.target.value)} placeholder="phone (optional)" />
-                            </div>
-                            <div style={{ display:"flex", gap:8 }}>
-                              <button onClick={() => { setAddingRsvpTo(null); setManualName(""); setManualPhone(""); }}
-                                style={{ flex:1, padding:"6px", borderRadius:8, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", fontSize:12, color:t.text }}>cancel</button>
-                              <button onClick={() => addManualRsvp(ev.id)}
-                                style={{ flex:2, padding:"6px", borderRadius:8, background:"#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:12 }}>➕ add to RSVP</button>
-                            </div>
-                          </div>
+                          <ManualRsvpAdder
+                            eventId={ev.id}
+                            contacts={contacts}
+                            onDone={() => setAddingRsvpTo(null)}
+                            dm={dm}
+                            t={t}
+                          />
                         ) : (
-                          <button onClick={() => { setAddingRsvpTo(ev.id); setManualName(""); setManualPhone(""); }}
+                          <button onClick={() => setAddingRsvpTo(ev.id)}
                             style={{ fontSize:12, padding:"5px 12px", borderRadius:20, border:`1px solid ${t.border}`, background:"none", cursor:"pointer", color:t.textSec, marginTop:6 }}>
                             ➕ add manually
                           </button>
@@ -890,7 +1001,7 @@ export default function AdminPanel({ darkMode = false }) {
             </div>
           )}
 
-          {/* 📜 SMS history link — replaces the inline log */}
+          {/* 📜 SMS history link */}
           <a href="/sms-history" style={{ display:"block", textAlign:"center", marginTop:20, padding:12, borderRadius:12, border:`1px solid ${t.border}`, textDecoration:"none", color:t.textSec, fontSize:13, fontWeight:600 }}>
             📜 view SMS history →
           </a>
