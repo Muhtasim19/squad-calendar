@@ -30,7 +30,7 @@ function getContactName(contact) {
   return `${first} ${last}`.trim() || "No name";
 }
 
-// Multi-day aware date display for event cards
+// Multi-day aware date display
 function formatEventDates(ev) {
   const endD = ev.endDate && ev.endDate !== ev.date ? ev.endDate : null;
   if (!endD) return ev.date;
@@ -175,7 +175,6 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>title</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} style={{ marginBottom:12 }} />
 
-        {/* All-day toggle */}
         <div onClick={() => setAllDay(!allDay)}
           style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, padding:"8px 12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", border:`1.5px solid ${t.border}`, cursor:"pointer" }}>
           <span style={{ fontSize:13, fontWeight:600, color: allDay ? "#7F77DD" : t.text }}>all-day</span>
@@ -184,14 +183,12 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
           </div>
         </div>
 
-        {/* Starts */}
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>starts</label>
         <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
           <input type="date" value={date} onChange={e => { setDate(e.target.value); if (endDate && endDate < e.target.value) setEndDate(e.target.value); }} />
           {!allDay && <input type="time" value={time} onChange={e=>setTime(e.target.value)} />}
         </div>
 
-        {/* Ends */}
         <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>ends</label>
         <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:6 }}>
           <input type="date" value={endDate} min={date} onChange={e=>setEndDate(e.target.value)} />
@@ -324,7 +321,6 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
 
         {!noDate && (
           <>
-            {/* All-day toggle */}
             <div onClick={() => setAllDay(!allDay)}
               style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, padding:"8px 12px", borderRadius:10, background: dm ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", border:`1.5px solid ${t.border}`, cursor:"pointer" }}>
               <span style={{ fontSize:13, fontWeight:600, color: allDay ? "#7F77DD" : t.text }}>all-day</span>
@@ -333,14 +329,12 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
               </div>
             </div>
 
-            {/* Starts */}
             <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>starts</label>
             <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:12 }}>
               <input type="date" value={date} onChange={e => { setDate(e.target.value); if (endDate && endDate < e.target.value) setEndDate(e.target.value); }} />
               {!allDay && <input type="time" value={time} onChange={e=>setTime(e.target.value)} />}
             </div>
 
-            {/* Ends */}
             <label style={{ fontSize:12, color:t.textSec, display:"block", marginBottom:4 }}>ends</label>
             <div style={{ display:"grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap:10, marginBottom:6 }}>
               <input type="date" value={endDate} min={date} onChange={e=>setEndDate(e.target.value)} />
@@ -472,9 +466,7 @@ export default function AdminPanel({ darkMode = false }) {
   const [approved,             setApproved]             = useState([]);
   const [categories,           setCategories]           = useState([]);
   const [boardItems,           setBoardItems]           = useState([]);
-  const [subscribers,          setSubscribers]          = useState([]);
   const [contacts,             setContacts]             = useState([]);
-  const [smsLog,               setSmsLog]               = useState([]);
   const [tab,                  setTab]                  = useState("calendar");
   const [eventTimeFilter,      setEventTimeFilter]      = useState("upcoming");
   const [newName,              setNewName]              = useState("");
@@ -509,10 +501,8 @@ export default function AdminPanel({ darkMode = false }) {
     const u2 = onSnapshot(query(collection(db,"events"), where("status","==","approved")), s => setApproved(s.docs.map(d=>({id:d.id,...d.data()}))));
     const u3 = onSnapshot(collection(db,"categories"), s => setCategories(s.docs.map(d=>({id:d.id,...d.data()}))));
     const u4 = onSnapshot(query(collection(db,"board"), orderBy("createdAt","desc")), s => setBoardItems(s.docs.map(d=>({id:d.id,...d.data()}))));
-    const u5 = onSnapshot(collection(db,"fcmTokens"), s => setSubscribers(s.docs.map(d=>({id:d.id,...d.data()}))));
     const u6 = onSnapshot(collection(db,"contacts"),  s => setContacts(s.docs.map(d=>({id:d.id,...d.data()}))));
-    const u7 = onSnapshot(query(collection(db,"smsLog"), orderBy("sentAt","desc")), s => setSmsLog(s.docs.map(d=>({id:d.id,...d.data()}))));
-    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); };
+    return () => { u1(); u2(); u3(); u4(); u6(); };
   }, []);
 
   async function approve(id, smsSettings = {}) {
@@ -530,12 +520,11 @@ export default function AdminPanel({ darkMode = false }) {
     }
   }
 
-  const reject           = id => deleteDoc(doc(db,"events",id));
-  const remove           = id => deleteDoc(doc(db,"events",id));
-  const deleteCat        = id => deleteDoc(doc(db,"categories",id));
-  const deleteBoardItem  = id => deleteDoc(doc(db,"board",id));
-  const deleteSubscriber = id => deleteDoc(doc(db,"fcmTokens",id));
-  const deleteContact    = id => deleteDoc(doc(db,"contacts",id));
+  const reject          = id => deleteDoc(doc(db,"events",id));
+  const remove          = id => deleteDoc(doc(db,"events",id));
+  const deleteCat       = id => deleteDoc(doc(db,"categories",id));
+  const deleteBoardItem = id => deleteDoc(doc(db,"board",id));
+  const deleteContact   = id => deleteDoc(doc(db,"contacts",id));
 
   async function addManualRsvp(eventId) {
     if (!manualName.trim()) return alert("Name is required!");
@@ -606,23 +595,19 @@ export default function AdminPanel({ darkMode = false }) {
   const todayStr = new Date().toISOString().split("T")[0];
 
   // Multi-day aware: past only after END date
-  const displayEvents = tab === "pending"
-    ? pending
-    : approved.filter(ev => {
-        const evEnd = ev.endDate || ev.date;
-        if (eventTimeFilter === "upcoming") return !ev.date || evEnd >= todayStr;
-        if (eventTimeFilter === "past")     return evEnd < todayStr;
-        return true;
-      });
+  const displayEvents = approved.filter(ev => {
+    const evEnd = ev.endDate || ev.date;
+    if (eventTimeFilter === "upcoming") return !ev.date || evEnd >= todayStr;
+    if (eventTimeFilter === "past")     return evEnd < todayStr;
+    return true;
+  });
 
   const TABS = [
-    { key:"calendar",    label:"📅 calendar" },
-    { key:"pending",     label:`pending${pending.length > 0 ? ` (${pending.length})` : ""}` },
-    { key:"approved",    label:"approved" },
-    { key:"board",       label:"board" },
-    { key:"contacts",    label:`📱 contacts${contacts.length > 0 ? ` (${contacts.length})` : ""}` },
-    { key:"subscribers", label:"subscribers" },
-    { key:"categories",  label:"categories" },
+    { key:"calendar",   label:"📅 calendar" },
+    { key:"board",      label:`board${pending.length > 0 ? ` (${pending.length})` : ""}` },
+    { key:"approved",   label:"approved" },
+    { key:"contacts",   label:`📱 contacts${contacts.length > 0 ? ` (${contacts.length})` : ""}` },
+    { key:"categories", label:"categories" },
   ];
 
   return (
@@ -643,30 +628,28 @@ export default function AdminPanel({ darkMode = false }) {
         ))}
       </div>
 
-      {/* ── Events ── */}
-      {(tab === "pending" || tab === "approved") && (
+      {/* ── Approved events ── */}
+      {tab === "approved" && (
         <>
-          {tab === "approved" && (
-            <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
-              {[
-                { key:"upcoming", label:"📅 upcoming" },
-                { key:"past",     label:"🕐 past"     },
-                { key:"all",      label:"📋 all"      },
-              ].map(f => (
-                <button key={f.key} onClick={() => setEventTimeFilter(f.key)} style={{
-                  padding:"5px 14px", borderRadius:20, fontSize:12, cursor:"pointer",
-                  background: eventTimeFilter===f.key ? "#7F77DD" : t.tabBg,
-                  color:      eventTimeFilter===f.key ? "#fff" : t.textSec,
-                  border:     eventTimeFilter===f.key ? "none" : `1px solid ${t.tabBorder}`,
-                  fontWeight: eventTimeFilter===f.key ? 700 : 400,
-                }}>{f.label}</button>
-              ))}
-            </div>
-          )}
+          <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
+            {[
+              { key:"upcoming", label:"📅 upcoming" },
+              { key:"past",     label:"🕐 past"     },
+              { key:"all",      label:"📋 all"      },
+            ].map(f => (
+              <button key={f.key} onClick={() => setEventTimeFilter(f.key)} style={{
+                padding:"5px 14px", borderRadius:20, fontSize:12, cursor:"pointer",
+                background: eventTimeFilter===f.key ? "#7F77DD" : t.tabBg,
+                color:      eventTimeFilter===f.key ? "#fff" : t.textSec,
+                border:     eventTimeFilter===f.key ? "none" : `1px solid ${t.tabBorder}`,
+                fontWeight: eventTimeFilter===f.key ? 700 : 400,
+              }}>{f.label}</button>
+            ))}
+          </div>
 
           {displayEvents.length === 0 && (
             <div style={{ textAlign:"center", padding:"3rem 0", color:t.emptyColor, fontSize:14 }}>
-              {tab === "pending" ? "No plans waiting for approval 🎉" : `No ${eventTimeFilter} events`}
+              No {eventTimeFilter} events
             </div>
           )}
 
@@ -675,14 +658,14 @@ export default function AdminPanel({ darkMode = false }) {
               const c = getCatColor(ev.type), isExpanded = expandedRsvps === ev.id;
               const isPast = ev.date && (ev.endDate || ev.date) < todayStr;
               return (
-                <div key={ev.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"1rem 1.25rem", backdropFilter:"blur(8px)", opacity: isPast && tab==="approved" ? 0.8 : 1 }}>
+                <div key={ev.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"1rem 1.25rem", backdropFilter:"blur(8px)", opacity: isPast ? 0.8 : 1 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
                     <div style={{ flex:1 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
                         <span style={{ background:c.bg, color:c.color, fontSize:11, padding:"2px 10px", borderRadius:20, fontWeight:700 }}>{ev.type}</span>
                         <span style={{ fontWeight:700, fontSize:15, color:t.text }}>{ev.title}</span>
                         <RsvpCount eventId={ev.id} />
-                        {isPast && tab==="approved" && (
+                        {isPast && (
                           <span style={{ fontSize:11, color:t.textMuted, background:dm?"rgba(255,255,255,0.06)":"#f5f5f5", padding:"2px 8px", borderRadius:10 }}>✓ done</span>
                         )}
                         {ev.smsReminder && (
@@ -701,23 +684,14 @@ export default function AdminPanel({ darkMode = false }) {
                       </div>
                     </div>
                     <div style={{ display:"flex", gap:6, flexShrink:0, flexWrap:"wrap", justifyContent:"flex-end" }}>
-                      {tab === "pending" ? (
-                        <>
-                          <button onClick={() => setApprovingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"#1D9E75", color:"#fff", border:"none", fontSize:13, fontWeight:600, cursor:"pointer" }}>✓ approve</button>
-                          <button onClick={() => reject(ev.id)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:13, cursor:"pointer" }}>✕ reject</button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => setEditingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${dm?"rgba(127,119,221,0.5)":"#7F77DD"}`, color:"#7F77DD", fontSize:13, cursor:"pointer" }}>✏️ edit</button>
-                          <button onClick={() => {
-                            setExpandedRsvps(isExpanded ? null : ev.id);
-                            setAddingRsvpTo(null); setManualName(""); setManualPhone("");
-                          }} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textSec, fontSize:13, cursor:"pointer" }}>
-                            {isExpanded ? "hide RSVPs" : "see RSVPs"}
-                          </button>
-                          <button onClick={() => remove(ev.id)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textMuted, fontSize:13, cursor:"pointer" }}>remove</button>
-                        </>
-                      )}
+                      <button onClick={() => setEditingEvent(ev)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${dm?"rgba(127,119,221,0.5)":"#7F77DD"}`, color:"#7F77DD", fontSize:13, cursor:"pointer" }}>✏️ edit</button>
+                      <button onClick={() => {
+                        setExpandedRsvps(isExpanded ? null : ev.id);
+                        setAddingRsvpTo(null); setManualName(""); setManualPhone("");
+                      }} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textSec, fontSize:13, cursor:"pointer" }}>
+                        {isExpanded ? "hide RSVPs" : "see RSVPs"}
+                      </button>
+                      <button onClick={() => remove(ev.id)} style={{ padding:"6px 14px", borderRadius:8, background:"none", border:`1px solid ${t.tabBorder}`, color:t.textMuted, fontSize:13, cursor:"pointer" }}>remove</button>
                     </div>
                   </div>
 
@@ -754,12 +728,43 @@ export default function AdminPanel({ darkMode = false }) {
         </>
       )}
 
-      {/* ── Board ── */}
+      {/* ── Board — action center: pending + ideas + announcements ── */}
       {tab === "board" && (
         <div>
-          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Manage what appears on the Squad Board.</p>
+          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Everything that needs action: pending approvals, ideas, and board posts.</p>
+
+          {/* ⏳ Pending approval */}
+          {pending.length > 0 && (
+            <div style={{ marginBottom:20 }}>
+              <p style={{ fontSize:12, fontWeight:700, color:"#EF9F27", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>⏳ pending approval ({pending.length})</p>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {pending.map(ev => (
+                  <div key={ev.id} style={{ background:t.cardBg, border:"1.5px dashed #EF9F27", borderRadius:12, padding:"12px 14px" }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10 }}>
+                      <div style={{ flex:1 }}>
+                        <p style={{ fontWeight:700, fontSize:14, color:t.text, margin:"0 0 4px" }}>{ev.title}</p>
+                        <p style={{ fontSize:12, color:t.textSec, margin:0 }}>
+                          📅 {formatEventDates(ev)}{ev.allDay ? " · all-day" : ev.time ? ` at ${ev.time}` : ""}
+                        </p>
+                        {ev.location && <p style={{ fontSize:12, color:t.textSec, margin:"2px 0 0" }}>📍 {ev.location}</p>}
+                        {ev.note     && <p style={{ fontSize:12, color:t.textSec, margin:"2px 0 0" }}>📝 {ev.note}</p>}
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
+                        <button onClick={() => setApprovingEvent(ev)} style={{ padding:"5px 12px", borderRadius:8, background:"#1D9E75", color:"#fff", border:"none", fontSize:12, fontWeight:600, cursor:"pointer" }}>✓ approve</button>
+                        <button onClick={() => reject(ev.id)} style={{ padding:"5px 12px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer" }}>✕ reject</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Board items */}
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-            {boardItems.length === 0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>Nothing on the board yet</p>}
+            {boardItems.length === 0 && pending.length === 0 && (
+              <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>Nothing needs action 🎉</p>
+            )}
             {boardItems.map(item => (
               <div key={item.id} style={{ background:t.cardBg, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"12px 14px" }}>
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10 }}>
@@ -783,6 +788,7 @@ export default function AdminPanel({ darkMode = false }) {
               </div>
             ))}
           </div>
+
           {!addingBoard ? (
             <button onClick={() => setAddingBoard(true)} style={{ width:"100%", padding:12, borderRadius:12, border:"2px dashed #7F77DD", background:"rgba(127,119,221,0.05)", color:"#7F77DD", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ add to board</button>
           ) : (
@@ -884,44 +890,10 @@ export default function AdminPanel({ darkMode = false }) {
             </div>
           )}
 
-          {smsLog.length > 0 && (
-            <div style={{ marginTop:28 }}>
-              <p style={{ fontSize:12, fontWeight:700, color:t.textSec, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:12 }}>📜 SMS history</p>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {smsLog.map(log => (
-                  <div key={log.id} style={{ background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}` }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-                      <p style={{ fontSize:13, color:t.text, margin:0, flex:1, lineHeight:1.4 }}>"{log.message}"</p>
-                      <span style={{ fontSize:11, background:log.sent===log.total?"rgba(29,158,117,0.1)":"rgba(239,159,39,0.1)", color:log.sent===log.total?"#1D9E75":"#EF9F27", padding:"2px 8px", borderRadius:10, fontWeight:600, flexShrink:0, whiteSpace:"nowrap" }}>
-                        {log.sent}/{log.total} sent
-                      </span>
-                    </div>
-                    {log.sentAt && <p style={{ fontSize:11, color:t.textMuted, margin:"4px 0 0" }}>{log.sentAt.toDate?.().toLocaleString()||""}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Subscribers ── */}
-      {tab === "subscribers" && (
-        <div>
-          <p style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>{subscribers.length} device{subscribers.length!==1?"s":""} subscribed to push notifications</p>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {subscribers.length===0 && <p style={{ fontSize:13, color:t.emptyColor, textAlign:"center", padding:"1rem 0" }}>No push subscribers yet</p>}
-            {subscribers.map((sub,i) => (
-              <div key={sub.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:t.cardBg, borderRadius:10, padding:"10px 14px", border:`1px solid ${t.cardBorder}`, gap:10 }}>
-                <div>
-                  <p style={{ fontSize:13, fontWeight:600, color:t.text, margin:0 }}>Device {i+1} 🔔</p>
-                  <p style={{ fontSize:11, color:t.textMuted, margin:0, fontFamily:"monospace" }}>{sub.token?sub.token.substring(0,30)+"…":"unknown"}</p>
-                  {sub.createdAt && <p style={{ fontSize:11, color:t.textMuted, margin:0 }}>added {sub.createdAt.toDate?.().toLocaleDateString()||""}</p>}
-                </div>
-                <button onClick={() => deleteSubscriber(sub.id)} style={{ padding:"4px 12px", borderRadius:8, background:"none", border:"1px solid #F09595", color:"#A32D2D", fontSize:12, cursor:"pointer", flexShrink:0 }}>remove</button>
-              </div>
-            ))}
-          </div>
+          {/* 📜 SMS history link — replaces the inline log */}
+          <a href="/sms-history" style={{ display:"block", textAlign:"center", marginTop:20, padding:12, borderRadius:12, border:`1px solid ${t.border}`, textDecoration:"none", color:t.textSec, fontSize:13, fontWeight:600 }}>
+            📜 view SMS history →
+          </a>
         </div>
       )}
 

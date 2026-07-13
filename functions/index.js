@@ -1,17 +1,24 @@
 const { setGlobalOptions }  = require("firebase-functions");
-const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentUpdated, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule }        = require("firebase-functions/v2/scheduler");
 const { onCall }            = require("firebase-functions/v2/https");
 const admin                 = require("firebase-admin");
 const https                 = require("https");
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 
 setGlobalOptions({ maxInstances: 10 });
 
 admin.initializeApp();
 const db = admin.firestore();
 
-const CALENDAR_LINK = "https://www.squadcal.app";
+const CALENDAR_LINK = "squadcal.app";
+
+// ── Helper: clean phone number ──
+function cleanPhone(raw) {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return raw;
+}
 
 // ── Helper: send SMS via Textbelt ──
 function sendSMS(phone, message) {
@@ -44,13 +51,6 @@ function sendSMS(phone, message) {
 }
 
 // ── Helper: get contact phones by IDs ──
-function cleanPhone(raw) {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return raw;
-}
-
 async function getPhonesForContacts(contactIds) {
   const phones = [];
   for (const cid of contactIds) {
@@ -91,7 +91,7 @@ exports.notifyOnApproval = onDocumentUpdated("events/{eventId}", async (event) =
 // ── 1b. FCM push when admin directly creates an approved event ──
 exports.notifyOnCreate = onDocumentCreated("events/{eventId}", async (event) => {
   const data = event.data?.data();
-  if (!data || data.status !== "approved") return null; // only approved events
+  if (!data || data.status !== "approved") return null;
 
   const tokensSnap = await db.collection("fcmTokens").get();
   const tokens = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
@@ -165,8 +165,8 @@ exports.sendSmsReminders = onSchedule({
   }
 
   for (const eventDoc of eventsSnap.docs) {
-    const ev             = eventDoc.data();
-    const smsContactIds  = ev.smsContactIds || [];
+    const ev            = eventDoc.data();
+    const smsContactIds = ev.smsContactIds || [];
 
     if (smsContactIds.length === 0) {
       console.log(`Skipping "${ev.title}" — no contacts selected`);
@@ -194,39 +194,62 @@ exports.sendSmsReminders = onSchedule({
   return null;
 });
 
-// ── 4. Custom announcement SMS — selected contacts only ──
+// ── 4. Custom announcement SMS — per-recipient logging, keep last 30 ──
 exports.sendCustomSms = onCall(async (request) => {
   const { message, contactIds } = request.data;
   if (!message) throw new Error("Message required");
   if (!contactIds || contactIds.length === 0) return { sent: 0, total: 0 };
 
-  const phones = await getPhonesForContacts(contactIds);
-  if (phones.length === 0) return { sent: 0, total: contactIds.length };
+  // Fetch full contact docs so we can log names
+  const recipients = [];
+  for (const cid of contactIds) {
+    try {
+      const cdoc = await db.collection("contacts").doc(cid).get();
+      if (cdoc.exists && cdoc.data().phone) {
+        const c = cdoc.data();
+        recipients.push({
+          name:  `${c.firstName || c.name || ""} ${c.lastName || ""}`.trim() || "No name",
+          phone: cleanPhone(c.phone),
+        });
+      }
+    } catch (err) { console.error(`Error fetching contact ${cid}:`, err); }
+  }
+  if (recipients.length === 0) return { sent: 0, total: contactIds.length };
 
   const fullMessage = `${message}\n${CALENDAR_LINK}`;
   let sent = 0;
+  const results = [];
 
-  for (const phone of phones) {
+  for (const r of recipients) {
     try {
-      const result = await sendSMS(phone, fullMessage);
-      if (result.success) {
-        sent++;
-        console.log(`✅ Custom SMS → ${phone} (quota: ${result.quotaRemaining})`);
-      } else {
-        console.error(`❌ Custom SMS failed → ${phone}: ${result.error}`);
-      }
-    } catch (err) { console.error(`Custom SMS error → ${phone}:`, err); }
+      const result = await sendSMS(r.phone, fullMessage);
+      const ok = !!result.success;
+      if (ok) sent++;
+      results.push({ name: r.name, phone: r.phone, success: ok });
+      console.log(ok
+        ? `✅ Custom SMS → ${r.phone} (quota: ${result.quotaRemaining})`
+        : `❌ Custom SMS failed → ${r.phone}: ${result.error}`);
+    } catch (err) {
+      results.push({ name: r.name, phone: r.phone, success: false });
+      console.error(`Custom SMS error → ${r.phone}:`, err);
+    }
   }
 
-  // ── Save to SMS log ──
+  // Save log with per-recipient results
   try {
     await db.collection("smsLog").add({
-      message,
-      sent,
-      total: phones.length,
+      message, sent,
+      total: recipients.length,
+      recipients: results,
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    // Keep only the last 30 logs
+    const logsSnap = await db.collection("smsLog").orderBy("sentAt", "desc").get();
+    if (logsSnap.size > 30) {
+      for (const d of logsSnap.docs.slice(30)) await d.ref.delete();
+    }
   } catch (err) { console.error("Failed to save SMS log:", err); }
 
-  return { sent, total: phones.length };
+  return { sent, total: recipients.length };
 });
