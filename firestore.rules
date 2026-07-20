@@ -1,40 +1,63 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function validStr(s, max) {
+      return s is string && s.size() <= max;
+    }
+
     match /events/{id} {
-      allow read, create: if true;
-      allow update, delete: if request.auth != null;
+      allow read: if true;
+      allow create: if (request.resource.data.status == "pending"
+        && validStr(request.resource.data.title, 120)
+        && validStr(request.resource.data.date, 10)
+        && validStr(request.resource.data.note, 1000)
+        && validStr(request.resource.data.location, 300))
+        || isAdmin();
+      allow update, delete: if isAdmin();
+
       match /rsvps/{rsvpId} {
-        allow read, create, delete: if true;
+        allow read: if true;
+        allow create: if validStr(request.resource.data.name, 60);
+        allow delete: if true;
+        allow update: if isAdmin();
       }
     }
+
     match /notifications/{id} {
-      allow read, create: if true;
-      allow update, delete: if request.auth != null;
+      allow read: if true;
+      allow create: if validStr(request.resource.data.message, 300);
+      allow update, delete: if isAdmin();
     }
+
     match /categories/{id} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
+
     match /fcmTokens/{id} {
-      allow read: if request.auth != null;
-      allow create: if true;
-      allow update, delete: if request.auth != null;
+      allow read: if isAdmin();
+      allow create: if validStr(request.resource.data.token, 4096);
+      allow update, delete: if isAdmin();
     }
-    match /subscribers/{id} {
-      allow read: if request.auth != null;
-      allow create: if true;
-      allow update, delete: if request.auth != null;
-    }
+
     match /board/{id} {
-      allow read, create: if true;
-      allow update, delete: if request.auth != null;
+      allow read: if true;
+      allow create: if validStr(request.resource.data.title, 120)
+        && validStr(request.resource.data.description, 1000);
+      allow update, delete: if isAdmin();
     }
+
     match /contacts/{id} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isAdmin();
     }
+
     match /smsLog/{id} {
-      allow read: if request.auth != null;
+      allow read: if isAdmin();
       allow write: if false;
     }
   }

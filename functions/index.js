@@ -196,9 +196,12 @@ exports.sendSmsReminders = onSchedule({
 
 // ── 4. Custom announcement SMS — admin only, per-recipient logging, keep last 30 ──
 exports.sendCustomSms = onCall(async (request) => {
-  // ── Auth check: only a signed-in admin may send ──
+  // ── Auth checks: signed in AND admin claim ──
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Login required");
+  }
+  if (request.auth.token.admin !== true) {
+    throw new HttpsError("permission-denied", "Admin only");
   }
 
   const { message, contactIds } = request.data;
