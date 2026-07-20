@@ -1,7 +1,3 @@
-// Don't run web push inside the native app — it uses a different system
-const isNativeApp = window.Capacitor?.isNativePlatform?.() || false;
-if (isNativeApp) return null;
-
 import { useState, useEffect } from "react";
 import { collection, addDoc, query, where, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
@@ -9,10 +5,14 @@ import { db } from "../firebase";
 const VAPID_KEY = process.env.REACT_APP_FIREBASE_VAPID_KEY;
 
 export default function PushNotifications() {
+  // Don't run web push inside the native app — it uses a different system
+  const isNativeApp = window.Capacitor?.isNativePlatform?.() || false;
+
   const [status,    setStatus]    = useState("idle");
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
+    if (isNativeApp) return;
     try {
       if (localStorage.getItem("squadcal_push_dismissed") === "true") {
         setDismissed(true);
@@ -22,19 +22,17 @@ export default function PushNotifications() {
         setStatus("granted");
         return;
       }
-      // Safe Notification check — doesn't exist on all iOS versions
       if (typeof Notification !== "undefined" && Notification.permission === "denied") {
         setStatus("denied");
       }
     } catch (e) {
       setStatus("unsupported");
     }
-  }, []);
+  }, [isNativeApp]);
 
   async function requestPermission() {
     setStatus("requesting");
     try {
-      // Dynamic import — only loads when needed, won't crash on iOS
       const { isSupported, getMessaging, getToken } = await import("firebase/messaging");
       const { app } = await import("../firebase");
 
@@ -72,9 +70,10 @@ export default function PushNotifications() {
     setDismissed(true);
   }
 
-  // Hide in all failure/unsupported/already-done states
+  // Hide in native app and all failure/unsupported/already-done states
   if (
-    dismissed          ||
+    isNativeApp              ||
+    dismissed                ||
     status === "granted"     ||
     status === "denied"      ||
     status === "unsupported"
