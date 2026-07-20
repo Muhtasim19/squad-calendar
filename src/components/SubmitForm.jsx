@@ -2,6 +2,7 @@ import { useState } from "react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import LocationPicker from "./LocationPicker";
+import { tapLight, tapMedium, buzzSuccess } from "../haptics";
 
 const DEFAULTS = [
   { name:"hangout", color:{ bg:"#EEEDFE", color:"#3C3489" } },
@@ -28,6 +29,7 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
   const finalType = type === "custom" ? (customType.trim() || "other") : type;
 
   async function handleSubmit() {
+
     if (!title.trim()) return alert("Please add a title!");
     if (!isIdea && !date) return alert("Please add a start date or toggle 'no date yet'.");
 
@@ -44,6 +46,7 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
           pinned:false, createdAt:serverTimestamp(),
         });
       } else {
+        buzzSuccess();
         await addDoc(collection(db, "events"), {
           title, date,
           endDate: finalEnd,
@@ -66,7 +69,11 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
+      <div
+          className="sheet-overlay"
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+          onClick={e => e.target === e.currentTarget && onClose()}
+      >
       <div className="modal-anim" style={{ background:"rgba(255,255,255,0.95)", backdropFilter:"blur(20px)", borderRadius:20, padding:"1.75rem", width:400, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.15)" }}>
         {done ? (
           <div style={{ textAlign:"center", padding:"1.5rem 0" }}>

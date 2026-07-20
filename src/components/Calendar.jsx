@@ -1,5 +1,6 @@
 import { useState } from "react";
 import EventPill from "./EventPill";
+import { tapLight, tapMedium, buzzSuccess } from "../haptics";
 
 const MONTHS       = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -196,7 +197,7 @@ export default function Calendar({ events, categories, getCatColor, onDayClick, 
       <div style={{ display:"flex", justifyContent:"center", marginBottom:16 }}>
         <div style={{ display:"flex", background:t.switchBg, borderRadius:10, padding:3, gap:2 }}>
           {["year","month","week","day"].map(v => (
-            <button key={v} onClick={() => setView(v)} style={{
+            <button key={v}onClick={() => { tapLight(); setView(v); }} style={{
               padding:"5px 12px", borderRadius:8, fontSize:12, cursor:"pointer", border:"none",
               background:  view===v ? t.switchActive : "transparent",
               color:       view===v ? (darkMode ? "#9B94FF" : "#3C3489") : t.textSec,

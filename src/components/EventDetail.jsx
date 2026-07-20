@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { tapLight, tapMedium, buzzSuccess } from "../haptics";
 import {
   collection, onSnapshot, addDoc,
   deleteDoc, doc, serverTimestamp
@@ -60,6 +61,7 @@ export default function EventDetail({ event, onClose }) {
   }
 
   async function rsvpIn(name, phone) {
+    buzzSuccess();
     const formattedPhone = phone ? formatPhone(phone) : null;
     const fcmToken       = localStorage.getItem("squadcal_push") || null;
 
@@ -87,6 +89,7 @@ export default function EventDetail({ event, onClose }) {
   }
 
   async function rsvpOut() {
+    tapMedium();
     if (!myRsvpId) return;
     await deleteDoc(doc(db, "events", event.id, "rsvps", myRsvpId));
     const ids = JSON.parse(localStorage.getItem("squadcal_rsvps") || "{}");
@@ -109,10 +112,12 @@ export default function EventDetail({ event, onClose }) {
     : null;
 
   return (
-    <div
-      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
+      <div
+          className="sheet-overlay"
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+          onClick={e => e.target === e.currentTarget && onClose()}
+      >
+      
       <div className="modal-anim" style={{ background:"rgba(255,255,255,0.96)", backdropFilter:"blur(20px)", borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.15)" }}>
 
         {/* Header */}

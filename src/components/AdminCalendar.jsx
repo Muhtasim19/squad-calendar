@@ -104,9 +104,11 @@ function AddEventModal({ onClose, dm }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500 }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
+      <div
+        className="sheet-overlay"
+        style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+        onClick={e => e.target === e.currentTarget && onClose()}
+      >
       <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.25)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
           <h2 style={{ fontSize:18, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489", margin:0 }}>➕ add event</h2>
@@ -259,9 +261,11 @@ function AdminEventModal({ event, categories, onClose, onApprove, onReject, onRe
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:400 }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
+      <div
+        className="sheet-overlay"
+        style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+        onClick={e => e.target === e.currentTarget && onClose()}
+      >
       <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.2)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
           <div>

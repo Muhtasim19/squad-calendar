@@ -8,6 +8,8 @@ import { db, functions } from "../firebase";
 import AdminCalendar from "./AdminCalendar";
 import LocationPicker from "./LocationPicker";
 
+import { tapLight, tapMedium, buzzSuccess } from "../haptics";
+
 const PALETTE = [
   { bg:"#CECBF6", color:"#3C3489", label:"purple" },
   { bg:"#9FE1CB", color:"#085041", label:"teal"   },
@@ -290,9 +292,11 @@ function EditEventModal({ event, contacts, onClose, dm, t }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
+      <div
+        className="sheet-overlay"
+        style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+        onClick={e => e.target === e.currentTarget && onClose()}
+      >
       <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.15)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <h2 style={{ fontSize:17, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>edit event</h2>
@@ -424,9 +428,11 @@ function PlanItModal({ item, categories, onClose, dm, t }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:400 }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
+      <div
+        className="sheet-overlay"
+        style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+        onClick={e => e.target === e.currentTarget && onClose()}
+      >
       <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:420, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.2)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <h2 style={{ fontSize:17, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>📅 plan it</h2>
@@ -518,9 +524,11 @@ function ApproveModal({ event, contacts, onClose, onApprove, dm, t }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:350 }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
+      <div
+        className="sheet-overlay"
+        style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+        onClick={e => e.target === e.currentTarget && onClose()}
+      >
       <div className="modal-anim" style={{ borderRadius:20, padding:"1.75rem", width:400, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.2)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <h2 style={{ fontSize:17, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>✓ approve event</h2>
@@ -631,6 +639,7 @@ export default function AdminPanel({ darkMode = false }) {
   }, []);
 
   async function approve(id, smsSettings = {}) {
+    buzzSuccess();
     const ev = pending.find(e => e.id === id);
     await updateDoc(doc(db,"events",id), {
       status:        "approved",
@@ -691,6 +700,7 @@ export default function AdminPanel({ darkMode = false }) {
   }
 
   async function handleSendCustomMsg() {
+    buzzSuccess();
     if (!customMsg.trim()) return alert("Please type a message first!");
     if (announcementContacts.length === 0) return alert("Please select at least one contact!");
     setSendingMsg(true);

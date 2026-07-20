@@ -269,3 +269,57 @@ body.dark .sticky-header {
     padding-top: calc(env(safe-area-inset-top) + 8px);  /* clears the notch */
   }
 }
+/* ═══════════ Native feel: bottom sheets ═══════════ */
+
+@media (max-width: 640px) {
+  /* Modal overlay anchors content to the bottom on phones */
+  .sheet-overlay {
+    align-items: flex-end !important;
+  }
+
+  /* The modal box becomes a bottom sheet */
+  .sheet-overlay > .modal-anim {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 22px 22px 0 0 !important;
+    max-height: 88vh !important;
+    padding-bottom: calc(1.75rem + env(safe-area-inset-bottom)) !important;
+    animation: sheetUp 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
+  }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Grab handle at the top of sheets */
+@media (max-width: 640px) {
+  .sheet-overlay > .modal-anim::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(127, 127, 127, 0.3);
+    margin: -8px auto 14px;
+  }
+}
+
+/* ═══════════ Native feel: press states ═══════════ */
+
+button {
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+button:active {
+  transform: scale(0.96);
+  opacity: 0.75;
+}
+
+/* Cards and tappable rows compress slightly */
+.cal-cell:active,
+.pressable:active {
+  transform: scale(0.98);
+  opacity: 0.85;
+  transition: transform 0.1s ease;
+}

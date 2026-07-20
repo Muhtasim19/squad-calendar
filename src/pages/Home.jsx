@@ -8,6 +8,7 @@ import EventDetail from "../components/EventDetail";
 import Notifications from "../components/Notifications";
 import PushNotifications from "../components/PushNotifications";
 import SquadBoard from "../components/SquadBoard";
+import { tapLight, tapMedium, buzzSuccess } from "../haptics";
 
 const DEFAULT_COLORS = {
   hangout: { bg:"#CECBF6", color:"#3C3489" },
@@ -34,6 +35,7 @@ export default function Home() {
     tapCount.current += 1;
     clearTimeout(tapTimer.current);
     if (tapCount.current >= 4) {
+      tapMedium();
       tapCount.current = 0;
       navigate("/admin");
       return;

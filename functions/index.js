@@ -1,7 +1,7 @@
 const { setGlobalOptions }  = require("firebase-functions");
 const { onDocumentUpdated, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule }        = require("firebase-functions/v2/scheduler");
-const { onCall }            = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin                 = require("firebase-admin");
 const https                 = require("https");
 
@@ -194,10 +194,15 @@ exports.sendSmsReminders = onSchedule({
   return null;
 });
 
-// ── 4. Custom announcement SMS — per-recipient logging, keep last 30 ──
+// ── 4. Custom announcement SMS — admin only, per-recipient logging, keep last 30 ──
 exports.sendCustomSms = onCall(async (request) => {
+  // ── Auth check: only a signed-in admin may send ──
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Login required");
+  }
+
   const { message, contactIds } = request.data;
-  if (!message) throw new Error("Message required");
+  if (!message) throw new HttpsError("invalid-argument", "Message required");
   if (!contactIds || contactIds.length === 0) return { sent: 0, total: 0 };
 
   // Fetch full contact docs so we can log names
