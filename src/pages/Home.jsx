@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import Calendar from "../components/Calendar";
@@ -7,30 +8,12 @@ import EventDetail from "../components/EventDetail";
 import Notifications from "../components/Notifications";
 import PushNotifications from "../components/PushNotifications";
 import SquadBoard from "../components/SquadBoard";
-import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
 
 const DEFAULT_COLORS = {
   hangout: { bg:"#CECBF6", color:"#3C3489" },
   trip:    { bg:"#9FE1CB", color:"#085041" },
   sports:  { bg:"#FAC775", color:"#633806" },
 };
-
-const navigate = useNavigate();
-const tapCount = useRef(0);
-const tapTimer = useRef(null);
-
-function handleTitleTap() {
-  tapCount.current += 1;
-  clearTimeout(tapTimer.current);
-  if (tapCount.current >= 4) {
-    tapCount.current = 0;
-    navigate("/admin");
-    return;
-  }
-  // reset the counter if taps stop for 1.5s
-  tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
-}
 
 export default function Home() {
   const [events,        setEvents]        = useState([]);
@@ -41,6 +24,22 @@ export default function Home() {
   const [darkMode,      setDarkMode]      = useState(
     () => localStorage.getItem("squadcal_dark") === "true"
   );
+
+  // ── Hidden admin access: 4 taps on title ──
+  const navigate = useNavigate();
+  const tapCount = useRef(0);
+  const tapTimer = useRef(null);
+
+  function handleTitleTap() {
+    tapCount.current += 1;
+    clearTimeout(tapTimer.current);
+    if (tapCount.current >= 4) {
+      tapCount.current = 0;
+      navigate("/admin");
+      return;
+    }
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
+  }
 
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
