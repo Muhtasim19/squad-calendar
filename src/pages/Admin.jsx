@@ -13,19 +13,34 @@ export default function Admin() {
     () => localStorage.getItem("squadcal_admin_dark") === "true"
   );
 
-  // ✅ KEEP — dark mode
+  // Dark mode
   useEffect(() => {
     document.body.classList.toggle("dark", darkMode);
     localStorage.setItem("squadcal_admin_dark", darkMode);
   }, [darkMode]);
 
-  // ✅ KEEP — auth listener
+  // Auth listener — verifies the admin custom claim
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        try {
+          const token = await u.getIdTokenResult();
+          if (token.claims.admin !== true) {
+            await signOut(auth);
+            setUser(null);
+            setError("This account doesn't have admin access.");
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error("Claim check failed:", e);
+        }
+      }
+      setUser(u);
+      setLoading(false);
+    });
     return () => unsub();
   }, []);
-
-  // ❌ REMOVED — manifest swap (no longer needed with admin.squadcal.app subdomain)
 
   async function handleLogin() {
     setError("");
