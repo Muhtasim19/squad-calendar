@@ -727,22 +727,31 @@ export default function AdminPanel({ darkMode = false }) {
   ];
 
   return (
-    <div>
+<div>
 
-      {tab === "calendar" && <AdminCalendar darkMode={dm} />}
+    {/* Tabs — now FIRST, and sticky */}
+    <div style={{
+      display:"flex", gap:6, marginBottom:"1.5rem", overflowX:"auto",
+      paddingBottom:4, scrollbarWidth:"none", msOverflowStyle:"none",
+      position:"sticky", top:0, zIndex:50,
+      paddingTop:8,
+      background: dm ? "rgba(20,20,32,0.85)" : "rgba(245,245,250,0.85)",
+      backdropFilter:"blur(12px)",
+      WebkitBackdropFilter:"blur(12px)",
+    }}>
+      {TABS.map(t_ => (
+        <button key={t_.key} onClick={() => setTab(t_.key)} style={{
+          padding:"7px 16px", borderRadius:20, fontSize:13, cursor:"pointer",
+          whiteSpace:"nowrap", flexShrink:0,
+          background: tab===t_.key ? "#7F77DD" : t.tabBg,
+          color:      tab===t_.key ? "#fff" : t.textSec,
+          border:     tab===t_.key ? "none" : `1px solid ${t.tabBorder}`,
+          fontWeight: tab===t_.key ? 700 : 400,
+        }}>{t_.label}</button>
+      ))}
+    </div>
 
-      <div style={{ display:"flex", gap:6, marginBottom:"1.5rem", overflowX:"auto", paddingBottom:4, scrollbarWidth:"none", msOverflowStyle:"none" }}>
-        {TABS.map(t_ => (
-          <button key={t_.key} onClick={() => setTab(t_.key)} style={{
-            padding:"7px 16px", borderRadius:20, fontSize:13, cursor:"pointer",
-            whiteSpace:"nowrap", flexShrink:0,
-            background: tab===t_.key ? "#7F77DD" : t.tabBg,
-            color:      tab===t_.key ? "#fff" : t.textSec,
-            border:     tab===t_.key ? "none" : `1px solid ${t.tabBorder}`,
-            fontWeight: tab===t_.key ? 700 : 400,
-          }}>{t_.label}</button>
-        ))}
-      </div>
+    {tab === "calendar" && <AdminCalendar darkMode={dm} />}
 
       {/* ── Approved events ── */}
       {tab === "approved" && (

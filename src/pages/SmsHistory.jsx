@@ -70,10 +70,10 @@ export default function SmsHistory() {
 
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           {logs.map(log => (
-            <div key={log.id} style={{ background:t.cardBg, borderRadius:14, padding:"14px 16px", border:`1px solid ${t.cardBorder}` }}>
+            <div key={log.id} style={{ background:t.cardBg, borderRadius:14, padding:"14px 16px", border:`1px solid ${t.cardBorder}`, overflow:"hidden" }}>
 
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10, marginBottom:8 }}>
-                <p style={{ fontSize:14, color:t.text, margin:0, flex:1, lineHeight:1.4 }}>"{log.message}"</p>
+                <p style={{ fontSize:14, color:t.text, margin:0, flex:1, lineHeight:1.4, minWidth:0, overflowWrap:"anywhere", wordBreak:"break-word" }}>"{log.message}"</p>
                 <span style={{ fontSize:11, background: log.sent===log.total ? "rgba(29,158,117,0.1)" : "rgba(239,159,39,0.1)", color: log.sent===log.total ? "#1D9E75" : "#EF9F27", padding:"2px 8px", borderRadius:10, fontWeight:600, flexShrink:0, whiteSpace:"nowrap" }}>
                   {log.sent}/{log.total} sent
                 </span>
