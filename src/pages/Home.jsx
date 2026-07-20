@@ -7,12 +7,30 @@ import EventDetail from "../components/EventDetail";
 import Notifications from "../components/Notifications";
 import PushNotifications from "../components/PushNotifications";
 import SquadBoard from "../components/SquadBoard";
+import { useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 const DEFAULT_COLORS = {
   hangout: { bg:"#CECBF6", color:"#3C3489" },
   trip:    { bg:"#9FE1CB", color:"#085041" },
   sports:  { bg:"#FAC775", color:"#633806" },
 };
+
+const navigate = useNavigate();
+const tapCount = useRef(0);
+const tapTimer = useRef(null);
+
+function handleTitleTap() {
+  tapCount.current += 1;
+  clearTimeout(tapTimer.current);
+  if (tapCount.current >= 4) {
+    tapCount.current = 0;
+    navigate("/admin");
+    return;
+  }
+  // reset the counter if taps stop for 1.5s
+  tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1500);
+}
 
 export default function Home() {
   const [events,        setEvents]        = useState([]);
@@ -55,7 +73,12 @@ export default function Home() {
         {/* Header */}
         <div className="home-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
           <div>
-            <h1 style={{ fontSize:24, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489" }}>Squad Calendar</h1>
+            <h1
+              onClick={handleTitleTap}
+              style={{ fontSize:24, fontWeight:700, color: dm ? "#9B94FF" : "#3C3489", cursor:"default", WebkitUserSelect:"none", userSelect:"none" }}
+            >
+              Squad Calendar
+            </h1>
             <p style={{ fontSize:13, color: dm ? "#666" : "#aaa", marginTop:2 }}>Plan together, show up together</p>
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
