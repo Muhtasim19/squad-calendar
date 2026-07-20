@@ -207,3 +207,9 @@ body.dark textarea::placeholder {
 body.dark button:not([style*="background:#7F77DD"]):not([style*="background:#1D9E75"]):not([style*="background:#A32D2D"]) {
   color: inherit;
 }
+
+/* iPhone notch / home bar safe areas */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}

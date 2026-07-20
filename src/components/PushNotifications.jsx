@@ -1,3 +1,7 @@
+// Don't run web push inside the native app — it uses a different system
+const isNativeApp = window.Capacitor?.isNativePlatform?.() || false;
+if (isNativeApp) return null;
+
 import { useState, useEffect } from "react";
 import { collection, addDoc, query, where, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
