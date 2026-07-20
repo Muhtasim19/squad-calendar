@@ -66,11 +66,11 @@ export default function Home() {
   const dm = darkMode;
 
   return (
-    <div style={{ maxWidth:860, margin:"0 auto", padding:"2rem 1rem" }}>
+    <div className="page-wrap">
       <div className="page-card">
 
-        {/* Header */}
-        <div className="home-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
+        {/* Header — pinned */}
+        <div className="home-header sticky-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>        
           <div>
             <h1
               onClick={handleTitleTap}

@@ -6,4 +6,4 @@ cat >> .gitignore << 'EOF'
 ios/App/Pods/
 ios/App/build/
 ios/DerivedData/
-EOF
+EOFbuild/

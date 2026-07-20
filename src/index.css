@@ -209,7 +209,63 @@ body.dark button:not([style*="background:#7F77DD"]):not([style*="background:#1D9
 }
 
 /* iPhone notch / home bar safe areas */
-body {
+/* body {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+} */
+/* ── Native app feel ── */
+
+/* iOS zooms in when focusing inputs with font-size < 16px — force 16 */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* no gray tap flash, no text selection on UI */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+h1, h2, h3, label, button, .cal-day-num {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* stop rubber-band overscroll revealing the background */
+html, body {
+  overscroll-behavior-y: none;
+}
+
+.page-wrap {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+@media (max-width: 640px) {
+  .page-wrap {
+    padding: 0;           /* no side margins — full width */
+  }
+  .page-card {
+    border-radius: 0;     /* card fills the screen edge to edge */
+    min-height: 100vh;
+  }
+}
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 12px 16px;
+  margin: 0 -16px 1.5rem;              /* stretch to card edges */
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+body.dark .sticky-header {
+  background: rgba(18, 16, 30, 0.82);
+}
+
+@media (max-width: 640px) {
+  .sticky-header {
+    margin: 0 0 1rem;
+    padding-top: calc(env(safe-area-inset-top) + 8px);  /* clears the notch */
+  }
 }
