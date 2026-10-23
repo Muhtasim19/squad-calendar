@@ -224,13 +224,17 @@ exports.sendCustomSms = onCall(async (request) => {
   }
   if (recipients.length === 0) return { sent: 0, total: contactIds.length };
 
-  const fullMessage = `${message}\n${CALENDAR_LINK}`;
   let sent = 0;
   const results = [];
 
   for (const r of recipients) {
+    // Personalize: "Hi {first name}," — skip greeting if no real name
+    const firstName = r.name && r.name !== "No name" ? r.name.split(" ")[0] : "";
+    const greeting  = firstName ? `Hi ${firstName},\n` : "";
+    const personalMessage = `${greeting}${message}\n${CALENDAR_LINK}`;
+
     try {
-      const result = await sendSMS(r.phone, fullMessage);
+      const result = await sendSMS(r.phone, personalMessage);
       const ok = !!result.success;
       if (ok) sent++;
       results.push({ name: r.name, phone: r.phone, success: ok });
