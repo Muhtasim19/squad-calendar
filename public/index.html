@@ -10,6 +10,19 @@
     <meta name="apple-mobile-web-app-title" content="SquadCal" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <script>
+      // Block pinch-zoom and double-tap-zoom in the native WebView
+      document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gestureend', function (e) { e.preventDefault(); }, { passive: false });
+
+      let lastTouch = 0;
+      document.addEventListener('touchend', function (e) {
+        const now = Date.now();
+        if (now - lastTouch <= 300) e.preventDefault(); // double-tap zoom
+        lastTouch = now;
+      }, { passive: false });
+    </script>
     <title>Squad Calendar</title>
   </head>
   <body>
