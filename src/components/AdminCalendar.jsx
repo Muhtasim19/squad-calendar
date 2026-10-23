@@ -676,7 +676,7 @@ export default function AdminCalendar({ darkMode = false }) {
 
             <div style={{ fontSize:14,fontWeight:700,color:t.text,paddingBottom:8,borderBottom:`1px solid ${t.timeLine}` }}>
               {focusDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}
-              {dayEvents.length > 0 && (
+              {dayEvents.length > 0 && ( 
                 <span style={{ fontSize:12,fontWeight:400,color:t.textSec,marginLeft:10 }}>
                   {dayEvents.filter(e=>e.status==="pending").length > 0 && `⏳ ${dayEvents.filter(e=>e.status==="pending").length} pending · `}
                   {dayEvents.filter(e=>e.status==="approved").length > 0 && `✅ ${dayEvents.filter(e=>e.status==="approved").length} approved`}
