@@ -10,6 +10,11 @@ const DEFAULTS = [
   { name:"sports",  color:{ bg:"#FAEEDA", color:"#633806" } },
 ];
 
+// Rate limit: max 3 submissions per hour per device
+const RATE_KEY     = "squadcal_submits";
+const RATE_MAX     = 3;
+const RATE_WINDOW  = 3600000; // 1 hour in ms
+
 export default function SubmitForm({ defaultDate, categories, onClose }) {
   const [isIdea,     setIsIdea]     = useState(false);
   const [title,      setTitle]      = useState("");
@@ -38,6 +43,13 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
     if (!isIdea && !allDay && finalEnd === date && time && endTime && endTime <= time)
       return alert("End time must be after start time!");
 
+    // ── Rate limit: 3 submissions per hour per device ──
+    const now    = Date.now();
+    const recent = JSON.parse(localStorage.getItem(RATE_KEY) || "[]").filter(t => now - t < RATE_WINDOW);
+    if (recent.length >= RATE_MAX) {
+      return alert("You've added 3 plans in the last hour — please wait a bit before adding more.");
+    }
+
     setSubmitting(true);
     try {
       if (isIdea) {
@@ -56,13 +68,18 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
           location: location.name,
           lat: location.lat, lng: location.lng,
           type: finalType, note,
-          status:"pending", createdAt:serverTimestamp(),
+          status:"approved", createdAt:serverTimestamp(),
         });
         await addDoc(collection(db, "notifications"), {
-          message:`New plan suggested: "${title}" 📋`,
-          type:"new_plan", eventTitle:title, createdAt:serverTimestamp(),
+          message:`New plan added: "${title}" 🎉`,
+          type:"approved", eventTitle:title, createdAt:serverTimestamp(),
         });
       }
+
+      // Record this submission for the rate limit
+      recent.push(now);
+      localStorage.setItem(RATE_KEY, JSON.stringify(recent));
+
       setDone(true);
     } catch (err) { alert("Something went wrong: " + err.message); }
     finally { setSubmitting(false); }
@@ -79,10 +96,10 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
           <div style={{ textAlign:"center", padding:"1.5rem 0" }}>
             <div style={{ fontSize:52, marginBottom:12 }}>{isIdea ? "💡" : "✅"}</div>
             <h2 style={{ fontSize:18, fontWeight:700, marginBottom:8, color:"#3C3489" }}>
-              {isIdea ? "Idea added to the board!" : "Plan submitted!"}
+              {isIdea ? "Idea added to the board!" : "Plan added!"}
             </h2>
             <p style={{ fontSize:14, color:"#aaa", marginBottom:20 }}>
-              {isIdea ? "Your idea is now on the Squad Board." : "The admin will review and approve it soon."}
+              {isIdea ? "Your idea is now on the Squad Board." : "It's on the calendar now! 🎉"}
             </p>
             <button onClick={onClose} style={{ width:"100%", padding:10, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer" }}>close</button>
           </div>
@@ -98,7 +115,7 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
               </div>
               <div>
                 <p style={{ fontSize:13, fontWeight:600, color: isIdea ? "#3C3489" : "#666", margin:0 }}>💡 no date yet — add as idea</p>
-                <p style={{ fontSize:11, color:"#bbb", margin:0 }}>goes to Squad Board, no approval needed</p>
+                <p style={{ fontSize:11, color:"#bbb", margin:0 }}>goes to Squad Board</p>
               </div>
             </div>
 
@@ -155,7 +172,7 @@ export default function SubmitForm({ defaultDate, categories, onClose }) {
             <div style={{ display:"flex", gap:8 }}>
               <button onClick={onClose} style={{ flex:1, padding:10, borderRadius:10, border:"1px solid #ddd", background:"none", cursor:"pointer", fontSize:13 }}>cancel</button>
               <button onClick={handleSubmit} disabled={submitting} style={{ flex:2, padding:10, borderRadius:10, background: isIdea ? "#1D9E75" : "#7F77DD", color:"#fff", border:"none", fontWeight:700, cursor:"pointer", fontSize:13, opacity:submitting?0.7:1 }}>
-                {submitting ? "submitting…" : isIdea ? "add to board 💡" : "submit plan →"}
+                {submitting ? "submitting…" : isIdea ? "add to board 💡" : "add plan →"}
               </button>
             </div>
           </>
