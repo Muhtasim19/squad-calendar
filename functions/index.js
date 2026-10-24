@@ -10,7 +10,7 @@ setGlobalOptions({ maxInstances: 10 });
 admin.initializeApp();
 const db = admin.firestore();
 
-const CALENDAR_LINK = "squadcal.app";
+const CALENDAR_LINK = "https://www.squadcal.app";
 
 // ── Helper: clean phone number ──
 function cleanPhone(raw) {
