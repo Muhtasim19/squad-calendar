@@ -1,8 +1,24 @@
-//
-//  MainViewController.swift
-//  App
-//
-//  Created by Muhtasim Haq on 10/24/26.
-//
+import UIKit
+import Capacitor
 
-import Foundation
+class MainViewController: CAPBridgeViewController {
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        disableZoom()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        disableZoom()
+    }
+
+    private func disableZoom() {
+        guard let scrollView = self.webView?.scrollView else { return }
+        scrollView.pinchGestureRecognizer?.isEnabled = false
+        scrollView.isMultipleTouchEnabled = false
+        scrollView.bouncesZoom = false
+        scrollView.minimumZoomScale = 1.0
+        scrollView.maximumZoomScale = 1.0
+    }
+}

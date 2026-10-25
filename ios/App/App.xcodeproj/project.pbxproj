@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1AFDE147308C5EB2006ECB0E /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AFDE146308C5EB2006ECB0E /* SceneDelegate.swift */; };
+		1AFDE149308D7CBE006ECB0E /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AFDE148308D7CBE006ECB0E /* MainViewController.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -20,6 +21,7 @@
 
 /* Begin PBXFileReference section */
 		1AFDE146308C5EB2006ECB0E /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		1AFDE148308D7CBE006ECB0E /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* Squad_Cal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Squad_Cal.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -73,6 +75,7 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
+				1AFDE148308D7CBE006ECB0E /* MainViewController.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -158,6 +161,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1AFDE149308D7CBE006ECB0E /* MainViewController.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				1AFDE147308C5EB2006ECB0E /* SceneDelegate.swift in Sources */,
 			);
