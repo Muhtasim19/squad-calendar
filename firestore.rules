@@ -12,7 +12,7 @@ service cloud.firestore {
 
     match /events/{id} {
       allow read: if true;
-      allow create: if (request.resource.data.status == "pending"
+      allow create: if ((request.resource.data.status == "approved" || request.resource.data.status == "pending")
         && validStr(request.resource.data.title, 120)
         && validStr(request.resource.data.date, 10)
         && validStr(request.resource.data.note, 1000)
