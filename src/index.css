@@ -323,3 +323,19 @@ button:active {
   opacity: 0.85;
   transition: transform 0.1s ease;
 }
+
+/* ── Native touch feel ── */
+* {
+  -webkit-touch-callout: none;   /* no long-press callout menu */
+}
+body {
+  -webkit-user-select: none;     /* no text selection on the UI */
+  user-select: none;
+}
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;     /* but keep it in text fields */
+  user-select: text;
+}
+html, body {
+  overscroll-behavior: none;     /* no overscroll chaining */
+}
